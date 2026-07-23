@@ -35,9 +35,21 @@
       <span class="hero-eyebrow">Service disponible au Togo</span>
       <h1>Trouvez un artisan, réalisez vos projets</h1>
       <p>MrBokou met en relation en quelques minutes les particuliers et entreprises avec des artisans BTP qualifiés au Togo : électricité, plomberie, maçonnerie, peinture, climatisation, menuiserie.</p>
+
+      <form class="hero-search-card" id="hero-search-form">
+        <div class="hero-search-field">
+          <span class="hs-icon-service"></span>
+          <input type="text" id="hero-search-service" placeholder="De quoi avez-vous besoin ? (ex : fuite d'eau)"/>
+        </div>
+        <div class="hero-search-field location">
+          <span class="hs-icon-pin"></span>
+          <input type="text" id="hero-search-city" placeholder="Votre ville"/>
+        </div>
+        <button type="submit" class="btn btn-accent btn-lg">Trouver un artisan</button>
+      </form>
+
       <div class="hero-actions">
-        <a href="/pages/inscription.html?role=client" class="btn btn-accent btn-lg">Je cherche un artisan</a>
-        <a href="/pages/inscription.html?role=artisan" class="btn btn-secondary btn-lg">Je suis artisan</a>
+        <a href="/pages/inscription.html?role=artisan" class="btn btn-secondary">Je suis artisan, je m'inscris</a>
       </div>
       <div class="hero-trust">
         <div class="hero-trust-item"></div>
@@ -99,21 +111,62 @@
     <h2>Pensé pour le terrain togolais</h2>
     <p>Une plateforme simple, pensée pour les réalités locales.</p>
   </div>
-  <div class="features">
-    <div class="feature-card">
-      <div class="feature-icon"></div>
-      <h3>Artisans vérifiés</h3>
-      <p>Chaque profil artisan est examiné par l'équipe MrBokou avant d'être activé sur la plateforme.</p>
+  <div class="feature-split">
+    <div class="feature-list-v2">
+      <div class="feature-item-v2">
+        <div class="feature-icon"></div>
+        <div>
+          <h3>Artisans vérifiés</h3>
+          <p>Chaque profil artisan est examiné par l'équipe MrBokou avant d'être activé sur la plateforme.</p>
+        </div>
+      </div>
+      <div class="feature-item-v2">
+        <div class="feature-icon"></div>
+        <div>
+          <h3>Proche de chez vous</h3>
+          <p>La demande est envoyée aux artisans disponibles les plus proches de votre adresse.</p>
+        </div>
+      </div>
+      <div class="feature-item-v2">
+        <div class="feature-icon"></div>
+        <div>
+          <h3>Avis après chaque mission</h3>
+          <p>Notez l'artisan à la fin de l'intervention pour aider les prochains clients à bien choisir.</p>
+        </div>
+      </div>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon"></div>
-      <h3>Proche de chez vous</h3>
-      <p>La demande est envoyée aux artisans disponibles les plus proches de votre adresse.</p>
-    </div>
-    <div class="feature-card">
-      <div class="feature-icon"></div>
-      <h3>Avis après chaque mission</h3>
-      <p>Notez l'artisan à la fin de l'intervention pour aider les prochains clients à bien choisir.</p>
+    <div class="mockup-wrap">
+      <div class="mockup-backdrop"></div>
+      <div class="mockup-card">
+        <div class="mockup-bar"><span></span><span></span><span></span></div>
+        <div class="mockup-body">
+          <div class="mockup-row accent">
+            <div class="mockup-dot"></div>
+            <div class="mockup-lines">
+              <div class="mockup-line" style="width:70%;"></div>
+              <div class="mockup-line short"></div>
+            </div>
+            <span class="badge badge-en_cours">En cours</span>
+          </div>
+          <div class="mockup-row">
+            <div class="mockup-dot"></div>
+            <div class="mockup-lines">
+              <div class="mockup-line" style="width:60%;"></div>
+              <div class="mockup-line short"></div>
+            </div>
+            <span class="badge badge-acceptee">Acceptée</span>
+          </div>
+          <div class="mockup-row">
+            <div class="mockup-dot"></div>
+            <div class="mockup-lines">
+              <div class="mockup-line" style="width:80%;"></div>
+              <div class="mockup-line short"></div>
+            </div>
+            <span class="badge badge-terminee">Terminée</span>
+          </div>
+          <span class="mockup-badge">Mise à jour en temps réel</span>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -181,12 +234,31 @@
   const featureIcons = ["shield", "pin", "checkCircle"];
   document.querySelectorAll(".feature-icon").forEach((el, idx) => el.innerHTML = icon(featureIcons[idx]));
 
+  document.querySelector(".hs-icon-service").innerHTML = icon("tool");
+  document.querySelector(".hs-icon-pin").innerHTML = icon("pin");
+
+  const mockupIcons = ["bolt", "droplet", "wall"];
+  document.querySelectorAll(".mockup-dot").forEach((el, idx) => el.innerHTML = icon(mockupIcons[idx], "icon-sm"));
+
   const grid = document.getElementById("service-grid");
-  Object.entries(CATEGORY_ICONS).forEach(([name]) => {
+  Object.entries(CATEGORY_ICONS).forEach(([name], idx) => {
     const card = document.createElement("div");
-    card.className = "service-card";
-    card.innerHTML = `<div class="service-icon">${categoryIcon(name)}</div><div class="service-name">${name}</div>`;
+    card.className = `cat-card tone-${(idx % 6) + 1}`;
+    card.innerHTML = `<div class="cat-card-icon">${icon(CATEGORY_ICONS[name])}</div><div class="cat-card-name">${name}</div>`;
+    card.addEventListener("click", () => {
+      window.location.href = `/pages/inscription.html?role=client&cat=${encodeURIComponent(name)}`;
+    });
     grid.appendChild(card);
+  });
+
+  document.getElementById("hero-search-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const service = document.getElementById("hero-search-service").value.trim();
+    const city = document.getElementById("hero-search-city").value.trim();
+    const params = new URLSearchParams({ role: "client" });
+    if (service) params.set("besoin", service);
+    if (city) params.set("ville", city);
+    window.location.href = `/pages/inscription.html?${params.toString()}`;
   });
 </script>
 </body>

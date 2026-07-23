@@ -118,6 +118,8 @@
 
   const params = new URLSearchParams(location.search);
   if (params.get("role") === "artisan") setRole(ROLES.ARTISAN);
+  if (params.get("ville")) document.getElementById("city").value = params.get("ville");
+  if (params.get("besoin")) sessionStorage.setItem("mb_pending_besoin", params.get("besoin"));
 
   (async () => {
     try {

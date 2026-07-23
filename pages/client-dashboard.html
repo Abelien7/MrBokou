@@ -243,6 +243,11 @@
   (async () => {
     await Auth.requireRole(ROLES.CLIENT);
     await loadCategories();
+    const pendingBesoin = sessionStorage.getItem("mb_pending_besoin");
+    if (pendingBesoin) {
+      document.getElementById("description").value = pendingBesoin;
+      sessionStorage.removeItem("mb_pending_besoin");
+    }
     unsubscribeRealtime = Requests.subscribe(() => {
       if (!document.getElementById("panel-list").classList.contains("hidden")) loadRequests();
     });
