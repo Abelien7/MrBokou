@@ -41,11 +41,27 @@
             <label class="form-label" for="password">Mot de passe</label>
             <input class="form-control" type="password" id="password" required/>
           </div>
+          <p class="mb-2" style="text-align:right; font-size:0.85rem;"><a href="#" id="link-forgot-password">Mot de passe oublié ?</a></p>
           <button type="submit" class="btn btn-primary btn-block btn-lg" id="submit-btn">Se connecter</button>
         </form>
         <p class="text-center mt-3" style="font-size:0.9rem;">Pas encore de compte ? <a href="/pages/inscription.html">Créer un compte</a></p>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Modal mot de passe oublié -->
+<div class="modal-overlay hidden" id="forgot-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Mot de passe oublié</h2>
+      <button class="modal-close" id="btn-close-forgot"></button>
+    </div>
+    <p class="text-muted mb-2">Indiquez votre email, vous recevrez un lien pour choisir un nouveau mot de passe.</p>
+    <div class="form-group">
+      <input class="form-control" type="email" id="forgot-email" placeholder="Votre email"/>
+    </div>
+    <button class="btn btn-primary btn-block" id="btn-send-reset">Envoyer le lien</button>
   </div>
 </div>
 
@@ -60,6 +76,33 @@
 <script>
   const brandIcons = ["shield", "pin", "checkCircle"];
   document.querySelectorAll(".auth-brand-point span").forEach((el, idx) => el.innerHTML = icon(brandIcons[idx], "icon-sm"));
+  document.getElementById("btn-close-forgot").innerHTML = icon("x", "icon-sm");
+
+  document.getElementById("link-forgot-password").addEventListener("click", (e) => {
+    e.preventDefault();
+    document.getElementById("forgot-email").value = document.getElementById("email").value.trim();
+    document.getElementById("forgot-modal").classList.remove("hidden");
+  });
+  document.getElementById("btn-close-forgot").addEventListener("click", () => {
+    document.getElementById("forgot-modal").classList.add("hidden");
+  });
+  document.getElementById("btn-send-reset").addEventListener("click", async () => {
+    const email = document.getElementById("forgot-email").value.trim();
+    if (!Security.isValidEmail(email)) return showToast("Entrez un email valide.", "error");
+    const btn = document.getElementById("btn-send-reset");
+    btn.disabled = true;
+    btn.textContent = "Envoi...";
+    try {
+      await Auth.requestPasswordReset(email);
+      showToast("Email envoyé, vérifiez votre boîte de réception.", "success");
+      document.getElementById("forgot-modal").classList.add("hidden");
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Envoyer le lien";
+    }
+  });
 
   document.getElementById("login-form").addEventListener("submit", async (e) => {
     e.preventDefault();

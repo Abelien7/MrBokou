@@ -223,7 +223,7 @@
     } else if (profile.status === "en_attente") {
       body.innerHTML = `<div class="status-banner-body">${icon("clock")}<span><strong>Documents envoyés.</strong> L'équipe MrBokou examine votre dossier.</span></div>`;
     } else {
-      body.innerHTML = `<div class="status-banner-body status-rejected">${icon("ban")}<span><strong>Profil non validé.</strong> Contactez MrBokou pour plus d'informations.</span></div>`;
+      body.innerHTML = `<div class="status-banner-body status-rejected">${icon("ban")}<span><strong>Profil non validé.</strong> <a href="${supportWhatsappLink('Bonjour, mon profil artisan MrBokou a été refusé, pouvez-vous m\'aider ?')}" target="_blank" rel="noopener">Contacter le support sur WhatsApp</a></span></div>`;
     }
   }
 

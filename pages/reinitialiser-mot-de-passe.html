@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Nouveau mot de passe — MrBokou</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="/index.html" class="navbar-logo"><img src="/img/logo.png" alt="MrBokou" class="navbar-logo-mark"/>MrBokou</a>
+  </div>
+</nav>
+
+<div class="auth-wrap">
+  <div class="auth-card card">
+    <div class="card-body">
+      <h2 class="mb-2">Nouveau mot de passe</h2>
+      <p class="text-muted mb-2" id="reset-status">Vérification du lien...</p>
+      <form id="reset-form" class="hidden">
+        <div class="form-group">
+          <label class="form-label" for="password">Nouveau mot de passe</label>
+          <input class="form-control" type="password" id="password" minlength="6" required/>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="submit-btn">Enregistrer</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/icons.js"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/security.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+  document.querySelectorAll(".navbar-logo-mark").forEach(el => el.innerHTML = icon("tool"));
+
+  const statusEl = document.getElementById("reset-status");
+  const form = document.getElementById("reset-form");
+
+  supabase.auth.onAuthStateChange((event) => {
+    if (event === "PASSWORD_RECOVERY") {
+      statusEl.classList.add("hidden");
+      form.classList.remove("hidden");
+    }
+  });
+
+  // Si l'événement a déjà eu lieu avant l'attache du listener (chargement rapide)
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session) {
+      statusEl.classList.add("hidden");
+      form.classList.remove("hidden");
+    } else {
+      statusEl.textContent = "Lien invalide ou expiré. Redemandez un lien depuis la page de connexion.";
+    }
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const password = document.getElementById("password").value;
+    const btn = document.getElementById("submit-btn");
+    btn.disabled = true;
+    btn.textContent = "Enregistrement...";
+    try {
+      await Auth.updatePassword(password);
+      showToast("Mot de passe mis à jour !", "success");
+      await Auth.logout();
+    } catch (err) {
+      showToast(err.message, "error");
+      btn.disabled = false;
+      btn.textContent = "Enregistrer";
+    }
+  });
+</script>
+</body>
+</html>

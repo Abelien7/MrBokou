@@ -15,7 +15,10 @@ const Auth = (() => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName, phone, city, role, categories: categories || [] } }
+      options: {
+        data: { full_name: fullName, phone, city, role, categories: categories || [] },
+        emailRedirectTo: window.location.origin + "/pages/connexion.html"
+      }
     });
     if (error) throw new Error(getAuthError(error.message));
 
@@ -29,10 +32,23 @@ const Auth = (() => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw new Error(getAuthError(error.message));
     const role = await getUserRole();
-    if (!role) throw new Error("Compte sans profil. Contactez le support.");
+    if (!role) throw new Error("Compte sans profil. Contactez le support WhatsApp au +228 92 10 66 58.");
     currentUser = data.user;
     currentRole = role;
     return { user: data.user, role };
+  }
+
+  // ---------- Mot de passe oublié ----------
+  async function requestPasswordReset(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + "/pages/reinitialiser-mot-de-passe.html"
+    });
+    if (error) throw new Error(getAuthError(error.message));
+  }
+
+  async function updatePassword(newPassword) {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw new Error(getAuthError(error.message));
   }
 
   // ---------- Déconnexion ----------
@@ -84,6 +100,7 @@ const Auth = (() => {
 
   return {
     signup, login, logout, requireRole, getUserRole,
+    requestPasswordReset, updatePassword,
     getUser, getRole, isLoggedIn
   };
 })();

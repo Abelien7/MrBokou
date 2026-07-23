@@ -49,3 +49,10 @@ const CATEGORY_ICONS = {
 function categoryIcon(name) {
   return icon(CATEGORY_ICONS[name] || "tool", "cat-icon");
 }
+
+// ── Support (WhatsApp) ─────────────────────────────────────────
+const SUPPORT_WHATSAPP_NUMBER = "22892106658"; // +228 92 10 66 58
+function supportWhatsappLink(message) {
+  const text = message ? `?text=${encodeURIComponent(message)}` : "";
+  return `https://wa.me/${SUPPORT_WHATSAPP_NUMBER}${text}`;
+}
