@@ -346,7 +346,13 @@ create table if not exists quotes (
   amount integer not null check (amount > 0),
   description text,
   status text not null check (status in ('en_attente', 'accepte', 'refuse')) default 'en_attente',
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Paiement AJV Pay (voir api/create-payment.js, api/payment-callback/ajvpay.js) :
+  -- MrBokou encaisse 100% puis reverse manuellement 90% à l'artisan (10% de commission).
+  payment_id text,
+  payment_status text not null check (payment_status in ('non_requis', 'en_attente', 'paye', 'echoue')) default 'non_requis',
+  payout_status text not null check (payout_status in ('a_verser', 'verse')) default 'a_verser',
+  payout_at timestamptz
 );
 
 create table if not exists messages (
@@ -388,7 +394,11 @@ create policy "le client répond au devis" on quotes
   );
 
 -- La policy ci-dessus autorise à toucher la ligne ; ce trigger restreint ensuite
--- ce qui peut changer : seulement en_attente -> accepte|refuse, rien d'autre.
+-- ce qui peut changer. Un client authentifié ne peut plus poser lui-même
+-- "accepte" (ça passerait à côté du paiement) : seul le webhook AJV Pay
+-- (appel service_role, donc auth.uid() est null ici — un appel anon aurait
+-- déjà été bloqué par la policy RLS avant d'atteindre ce trigger) ou un
+-- admin peuvent le faire.
 create or replace function guard_quote_update()
 returns trigger
 language plpgsql
@@ -398,9 +408,20 @@ begin
   if get_user_role() = 'admin' then
     return new;
   end if;
-  if old.status <> 'en_attente' or new.status not in ('accepte', 'refuse') then
-    raise exception 'Modification non autorisée';
+
+  if auth.uid() is null then
+    -- service_role (api/create-payment.js, api/payment-callback/ajvpay.js) :
+    -- soit un simple suivi de paiement sans toucher au statut (création du
+    -- paiement, échec), soit la confirmation en_attente -> accepte|refuse.
+    if new.status <> old.status and (old.status <> 'en_attente' or new.status not in ('accepte', 'refuse')) then
+      raise exception 'Modification non autorisée';
+    end if;
+  else
+    if old.status <> 'en_attente' or new.status <> 'refuse' then
+      raise exception 'Modification non autorisée';
+    end if;
   end if;
+
   new.request_id := old.request_id;
   new.artisan_id := old.artisan_id;
   new.amount := old.amount;

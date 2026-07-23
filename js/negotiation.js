@@ -43,6 +43,22 @@ const Nego = (() => {
     if (error) throw error;
   }
 
+  // Accepter un devis ne pose plus directement status="accepte" (voir
+  // guard_quote_update côté SQL) : ça déclenche un paiement AJV Pay, et
+  // c'est la confirmation du paiement (webhook) qui accepte réellement le
+  // devis. Redirige le navigateur vers la page de paiement hébergée.
+  async function payQuote(quoteId) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/create-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ quoteId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Impossible de lancer le paiement.");
+    window.location.href = data.payment_url;
+  }
+
   async function getMessages(requestId) {
     const { data, error } = await supabase
       .from("messages")
@@ -87,7 +103,7 @@ const Nego = (() => {
     return () => supabase.removeChannel(channel);
   }
 
-  return { getQuotes, getLatestQuoteStatuses, sendQuote, respondQuote, getMessages, sendMessage, getPhotoUrl, subscribe };
+  return { getQuotes, getLatestQuoteStatuses, sendQuote, respondQuote, payQuote, getMessages, sendMessage, getPhotoUrl, subscribe };
 })();
 
 // ---------- UI partagée (client-dashboard.html + artisan-dashboard.html) ----------
@@ -193,21 +209,23 @@ const NegoUI = (() => {
       const sendBtn = el("quote-send");
       if (sendBtn) sendBtn.addEventListener("click", () => onSendQuote(requestId, myId));
     } else {
+      const payingNow = latestQuote?.payment_status === "en_attente";
       panel.innerHTML = `
         <div class="quote-card">
           ${!latestQuote
             ? `<p class="text-muted">En attente du devis de l'artisan.</p>`
             : latestQuote.status === "accepte"
-              ? `<div class="quote-status accepted">${icon("checkCircle", "icon-sm")} Devis accepté : <strong>${latestQuote.amount} FCFA</strong></div>`
+              ? `<div class="quote-status accepted">${icon("checkCircle", "icon-sm")} Devis payé : <strong>${latestQuote.amount} FCFA</strong></div>`
               : latestQuote.status === "refuse"
                 ? `<p class="text-muted">Devis refusé, en attente d'un nouveau devis de l'artisan.</p>`
                 : `
                 <div class="quote-status pending">
                   <div><strong>${latestQuote.amount} FCFA</strong></div>
                   ${latestQuote.description ? `<p>${Security.safeText(latestQuote.description)}</p>` : ""}
+                  ${latestQuote.payment_status === "echoue" ? `<p class="field-error">Le paiement précédent a échoué, réessayez.</p>` : ""}
                   <div class="flex gap-sm mt-1">
-                    <button class="btn btn-primary btn-sm" id="quote-accept">Accepter</button>
-                    <button class="btn btn-danger btn-sm" id="quote-refuse">Refuser</button>
+                    <button class="btn btn-primary btn-sm" id="quote-accept" ${payingNow ? "disabled" : ""}>${payingNow ? "Paiement en cours..." : "Accepter et payer"}</button>
+                    <button class="btn btn-danger btn-sm" id="quote-refuse" ${payingNow ? "disabled" : ""}>Refuser</button>
                   </div>
                 </div>`
           }
@@ -215,7 +233,7 @@ const NegoUI = (() => {
         </div>`;
       const acceptBtn = el("quote-accept");
       const refuseBtn = el("quote-refuse");
-      if (acceptBtn) acceptBtn.addEventListener("click", () => onRespondQuote(latestQuote.id, "accepte"));
+      if (acceptBtn) acceptBtn.addEventListener("click", () => onPayQuote(latestQuote.id));
       if (refuseBtn) refuseBtn.addEventListener("click", () => onRespondQuote(latestQuote.id, "refuse"));
     }
   }
@@ -244,6 +262,17 @@ const NegoUI = (() => {
       if (url) elPhoto.innerHTML = `<img src="${url}" alt="Photo jointe"/>`;
       else elPhoto.innerHTML = `<span class="text-muted">Photo indisponible</span>`;
     });
+  }
+
+  async function onPayQuote(quoteId) {
+    const btn = el("quote-accept");
+    if (btn) { btn.disabled = true; btn.textContent = "Redirection..."; }
+    try {
+      await Nego.payQuote(quoteId);
+    } catch (err) {
+      showToast(err.message, "error");
+      if (btn) { btn.disabled = false; btn.textContent = "Accepter et payer"; }
+    }
   }
 
   async function onSendQuote(requestId, artisanId) {

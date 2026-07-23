@@ -34,6 +34,7 @@
     <div class="tab-item active" data-tab="pending" id="tab-pending-artisans">À valider</div>
     <div class="tab-item" data-tab="all-artisans" id="tab-all-artisans">Tous les artisans</div>
     <div class="tab-item" data-tab="requests" id="tab-all-requests">Toutes les demandes</div>
+    <div class="tab-item" data-tab="payments" id="tab-payments">Paiements</div>
   </div>
 
   <section id="panel-pending"><div id="pending-list"></div></section>
@@ -50,6 +51,14 @@
       <table>
         <thead><tr><th>Client</th><th>Service</th><th>Adresse</th><th>Statut</th><th>Créée</th></tr></thead>
         <tbody id="requests-table-body"></tbody>
+      </table>
+    </div>
+  </section>
+  <section id="panel-payments" class="hidden">
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Artisan</th><th>Montant total</th><th>Part artisan (90%)</th><th>Commission (10%)</th><th>Reversement</th></tr></thead>
+        <tbody id="payments-table-body"></tbody>
       </table>
     </div>
   </section>
@@ -75,9 +84,11 @@
       document.getElementById("panel-pending").classList.toggle("hidden", tab.dataset.tab !== "pending");
       document.getElementById("panel-all-artisans").classList.toggle("hidden", tab.dataset.tab !== "all-artisans");
       document.getElementById("panel-requests").classList.toggle("hidden", tab.dataset.tab !== "requests");
+      document.getElementById("panel-payments").classList.toggle("hidden", tab.dataset.tab !== "payments");
       if (tab.dataset.tab === "pending") loadPending();
       if (tab.dataset.tab === "all-artisans") loadAllArtisans();
       if (tab.dataset.tab === "requests") loadAllRequests();
+      if (tab.dataset.tab === "payments") loadPayments();
     });
   });
 
@@ -150,6 +161,37 @@
       </tr>
     `).join("");
     updateStats();
+  }
+
+  async function loadPayments() {
+    const { data, error } = await supabase
+      .from("quotes")
+      .select("id, amount, payout_status, payout_at, artisan:artisan_id(full_name, phone)")
+      .eq("payment_status", "paye")
+      .order("created_at", { ascending: false });
+    if (error) return showToast(error.message, "error");
+
+    document.getElementById("payments-table-body").innerHTML = data.map(q => {
+      const artisanShare = Math.round(q.amount * 0.9);
+      const commission = q.amount - artisanShare;
+      return `
+      <tr>
+        <td>${Security.safeText(q.artisan?.full_name || "")} · ${Security.safeText(q.artisan?.phone || "")}</td>
+        <td>${q.amount} FCFA</td>
+        <td>${artisanShare} FCFA</td>
+        <td>${commission} FCFA</td>
+        <td>${q.payout_status === "verse"
+          ? `<span class="badge badge-approuve">Reversé</span>`
+          : `<button class="btn btn-primary btn-sm" onclick="markPayoutDone('${q.id}')">Marquer reversé</button>`}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  async function markPayoutDone(quoteId) {
+    const { error } = await supabase.from("quotes").update({ payout_status: "verse", payout_at: new Date().toISOString() }).eq("id", quoteId);
+    if (error) return showToast(error.message, "error");
+    showToast("Reversement marqué comme fait.", "success");
+    loadPayments();
   }
 
   async function updateStats() {
