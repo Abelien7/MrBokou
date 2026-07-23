@@ -11,7 +11,7 @@
 
 <nav class="navbar">
   <div class="navbar-inner">
-    <a href="/index.html" class="navbar-logo">🏠🔧 MrBokou <span>Admin</span></a>
+    <a href="/index.html" class="navbar-logo"><img src="/img/logo.png" alt="MrBokou" class="navbar-logo-mark"/>MrBokou <span class="admin-tag">Admin</span></a>
     <div class="navbar-actions">
       <button class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>
     </div>
@@ -19,6 +19,10 @@
 </nav>
 
 <main class="container" style="padding: 1.5rem 1rem 4rem;">
+  <div class="page-header">
+    <h1>Administration</h1>
+    <p class="text-muted">Validez les artisans et suivez l'activité de la plateforme.</p>
+  </div>
 
   <div class="grid-3 mb-3">
     <div class="stat-card"><div class="stat-label">Artisans à valider</div><div class="stat-value" id="stat-pending">—</div></div>
@@ -54,6 +58,7 @@
 <div id="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/icons.js"></script>
 <script src="/js/supabase-config.js"></script>
 <script src="/js/ui.js"></script>
 <script src="/js/security.js"></script>
@@ -80,7 +85,7 @@
     const list = document.getElementById("pending-list");
     const pending = await Artisans.pendingApplications();
     if (pending.length === 0) {
-      list.innerHTML = `<div class="empty-state"><div class="icon">✅</div><p>Aucune demande d'inscription en attente.</p></div>`;
+      list.innerHTML = `<div class="empty-state">${icon("checkCircle")}<p>Aucune demande d'inscription en attente.</p></div>`;
     } else {
       list.innerHTML = pending.map(a => `
         <div class="request-card">

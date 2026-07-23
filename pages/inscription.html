@@ -11,56 +11,68 @@
 
 <nav class="navbar">
   <div class="navbar-inner">
-    <a href="/index.html" class="navbar-logo">🏠🔧 MrBokou</a>
+    <a href="/index.html" class="navbar-logo"><img src="/img/logo.png" alt="MrBokou" class="navbar-logo-mark"/>MrBokou</a>
     <div class="navbar-actions">
       <a href="/pages/connexion.html" class="btn btn-ghost btn-sm">J'ai déjà un compte</a>
     </div>
   </div>
 </nav>
 
-<div class="auth-wrap">
-  <div class="auth-card card">
-    <div class="card-body">
-      <h2 class="mb-2">Créer un compte</h2>
+<div class="auth-split">
+  <div class="auth-brand">
+    <h2 id="brand-title">Rejoignez MrBokou.</h2>
+    <p id="brand-text">Créez votre compte client pour trouver un artisan qualifié en quelques minutes.</p>
+    <div class="auth-brand-points">
+      <div class="auth-brand-point"><span></span> Inscription gratuite et rapide</div>
+      <div class="auth-brand-point"><span></span> Artisans vérifiés avant activation</div>
+      <div class="auth-brand-point"><span></span> Disponible dans plusieurs villes du Togo</div>
+    </div>
+  </div>
+  <div class="auth-form-side">
+    <div class="auth-card card">
+      <div class="card-body">
+        <h2 class="mb-2">Créer un compte</h2>
 
-      <div class="role-toggle">
-        <button type="button" id="role-client" class="active">Je suis client</button>
-        <button type="button" id="role-artisan">Je suis artisan</button>
-      </div>
-
-      <form id="signup-form">
-        <div class="form-group">
-          <label class="form-label" for="full-name">Nom complet</label>
-          <input class="form-control" type="text" id="full-name" required/>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="phone">Téléphone</label>
-          <input class="form-control" type="tel" id="phone" placeholder="90123456" required/>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="city">Ville</label>
-          <input class="form-control" type="text" id="city" placeholder="Kpalimé, Lomé..." required/>
+        <div class="role-toggle">
+          <button type="button" id="role-client" class="active">Je suis client</button>
+          <button type="button" id="role-artisan">Je suis artisan</button>
         </div>
 
-        <div id="artisan-fields" class="hidden">
+        <form id="signup-form">
           <div class="form-group">
-            <label class="form-label">Domaines de compétence</label>
-            <div id="category-checkboxes"></div>
-            <p class="form-hint">Votre profil sera activé après validation par MrBokou.</p>
+            <label class="form-label" for="full-name">Nom complet</label>
+            <input class="form-control" type="text" id="full-name" required/>
           </div>
-        </div>
+          <div class="form-group">
+            <label class="form-label" for="phone">Téléphone</label>
+            <input class="form-control" type="tel" id="phone" placeholder="90123456" required/>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="city">Ville</label>
+            <input class="form-control" type="text" id="city" placeholder="Kpalimé, Lomé..." required/>
+          </div>
 
-        <div class="form-group">
-          <label class="form-label" for="email">Email</label>
-          <input class="form-control" type="email" id="email" required/>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="password">Mot de passe</label>
-          <input class="form-control" type="password" id="password" minlength="6" required/>
-        </div>
+          <div id="artisan-fields" class="hidden">
+            <div class="form-group">
+              <label class="form-label">Domaines de compétence</label>
+              <div id="category-checkboxes"></div>
+              <p class="form-hint">Votre profil sera activé après validation par MrBokou.</p>
+            </div>
+          </div>
 
-        <button type="submit" class="btn btn-primary btn-block btn-lg" id="submit-btn">Créer mon compte</button>
-      </form>
+          <div class="form-group">
+            <label class="form-label" for="email">Email</label>
+            <input class="form-control" type="email" id="email" required/>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="password">Mot de passe</label>
+            <input class="form-control" type="password" id="password" minlength="6" required/>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block btn-lg" id="submit-btn">Créer mon compte</button>
+        </form>
+        <p class="text-center mt-3" style="font-size:0.9rem;">Déjà inscrit ? <a href="/pages/connexion.html">Se connecter</a></p>
+      </div>
     </div>
   </div>
 </div>
@@ -68,6 +80,7 @@
 <div id="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/icons.js"></script>
 <script src="/js/supabase-config.js"></script>
 <script src="/js/ui.js"></script>
 <script src="/js/security.js"></script>
@@ -75,18 +88,30 @@
 <script src="/js/requests.js"></script>
 <script src="/js/artisans.js"></script>
 <script>
+  const brandIcons = ["checkCircle", "shield", "pin"];
+  document.querySelectorAll(".auth-brand-point span").forEach((el, idx) => el.innerHTML = icon(brandIcons[idx], "icon-sm"));
+
   let selectedRole = ROLES.CLIENT;
   let categories = [];
 
   const btnClient = document.getElementById("role-client");
   const btnArtisan = document.getElementById("role-artisan");
   const artisanFields = document.getElementById("artisan-fields");
+  const brandTitle = document.getElementById("brand-title");
+  const brandText = document.getElementById("brand-text");
 
   function setRole(role) {
     selectedRole = role;
     btnClient.classList.toggle("active", role === ROLES.CLIENT);
     btnArtisan.classList.toggle("active", role === ROLES.ARTISAN);
     artisanFields.classList.toggle("hidden", role !== ROLES.ARTISAN);
+    if (role === ROLES.ARTISAN) {
+      brandTitle.textContent = "Développez votre activité.";
+      brandText.textContent = "Recevez des demandes de clients près de chez vous et gérez vos missions facilement.";
+    } else {
+      brandTitle.textContent = "Rejoignez MrBokou.";
+      brandText.textContent = "Créez votre compte client pour trouver un artisan qualifié en quelques minutes.";
+    }
   }
   btnClient.addEventListener("click", () => setRole(ROLES.CLIENT));
   btnArtisan.addEventListener("click", () => setRole(ROLES.ARTISAN));

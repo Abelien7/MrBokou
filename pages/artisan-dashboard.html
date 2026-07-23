@@ -11,7 +11,7 @@
 
 <nav class="navbar">
   <div class="navbar-inner">
-    <a href="/index.html" class="navbar-logo">🏠🔧 MrBokou</a>
+    <a href="/index.html" class="navbar-logo"><img src="/img/logo.png" alt="MrBokou" class="navbar-logo-mark"/>MrBokou</a>
     <div class="navbar-actions">
       <button class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>
     </div>
@@ -19,6 +19,10 @@
 </nav>
 
 <main class="container" style="padding: 1.5rem 1rem 4rem;">
+  <div class="page-header">
+    <h1>Espace artisan</h1>
+    <p class="text-muted">Gérez votre disponibilité et vos missions.</p>
+  </div>
 
   <div id="status-banner" class="hidden card mb-2"><div class="card-body"></div></div>
 
@@ -45,6 +49,7 @@
 <div id="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/icons.js"></script>
 <script src="/js/supabase-config.js"></script>
 <script src="/js/ui.js"></script>
 <script src="/js/security.js"></script>
@@ -84,14 +89,14 @@
   async function loadPending() {
     const list = document.getElementById("pending-list");
     if (profile.status !== "approuve") {
-      list.innerHTML = `<div class="empty-state"><div class="icon">⏳</div><p>Votre profil doit être validé pour recevoir des demandes.</p></div>`;
+      list.innerHTML = `<div class="empty-state">${icon("clock")}<p>Votre profil doit être validé pour recevoir des demandes.</p></div>`;
       return;
     }
     const categoryIds = profile.categories || [];
     const requests = await Requests.pendingForArtisan(categoryIds);
 
     if (requests.length === 0) {
-      list.innerHTML = `<div class="empty-state"><div class="icon">🔧</div><p>Aucune demande en attente dans vos domaines pour le moment.</p></div>`;
+      list.innerHTML = `<div class="empty-state">${icon("tool")}<p>Aucune demande en attente dans vos domaines pour le moment.</p></div>`;
       return;
     }
 
@@ -130,7 +135,7 @@
     const missions = await Requests.myMissionsAsArtisan();
 
     if (missions.length === 0) {
-      list.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>Aucune mission pour l'instant.</p></div>`;
+      list.innerHTML = `<div class="empty-state">${icon("clipboard")}<p>Aucune mission pour l'instant.</p></div>`;
       return;
     }
 
@@ -169,9 +174,9 @@
     banner.classList.remove("hidden");
     const body = banner.querySelector(".card-body");
     if (profile.status === "en_attente") {
-      body.innerHTML = `⏳ <strong>Profil en cours de validation.</strong> L'équipe MrBokou examine votre inscription.`;
+      body.innerHTML = `<div class="status-banner-body">${icon("clock")}<span><strong>Profil en cours de validation.</strong> L'équipe MrBokou examine votre inscription.</span></div>`;
     } else {
-      body.innerHTML = `❌ <strong>Profil non validé.</strong> Contactez MrBokou pour plus d'informations.`;
+      body.innerHTML = `<div class="status-banner-body status-rejected">${icon("ban")}<span><strong>Profil non validé.</strong> Contactez MrBokou pour plus d'informations.</span></div>`;
     }
   }
 

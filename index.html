@@ -4,6 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MrBokou — Trouvez un artisan, réalisez vos projets</title>
+  <meta name="description" content="MrBokou met en relation les particuliers et entreprises avec des artisans BTP au Togo : électricité, plomberie, maçonnerie, peinture, climatisation, menuiserie."/>
   <link rel="stylesheet" href="/css/style.css"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
@@ -12,7 +13,15 @@
 
 <nav class="navbar">
   <div class="navbar-inner">
-    <span class="navbar-logo">🏠🔧 MrBokou</span>
+    <a href="/index.html" class="navbar-logo">
+      <img src="/img/logo.png" alt="MrBokou" class="navbar-logo-mark"/>
+      MrBokou
+    </a>
+    <div class="navbar-links">
+      <a href="#comment-ca-marche">Comment ça marche</a>
+      <a href="#domaines">Domaines</a>
+      <a href="#pourquoi">Pourquoi MrBokou</a>
+    </div>
     <div class="navbar-actions">
       <a href="/pages/connexion.html" class="btn btn-ghost btn-sm">Connexion</a>
       <a href="/pages/inscription.html" class="btn btn-primary btn-sm">Créer un compte</a>
@@ -21,36 +30,162 @@
 </nav>
 
 <div class="hero">
-  <div class="container">
-    <h1>Trouvez un artisan, réalisez vos projets</h1>
-    <p>MrBokou met en relation en quelques minutes les particuliers et entreprises avec des artisans BTP qualifiés au Togo : électricité, plomberie, maçonnerie, peinture, climatisation, menuiserie.</p>
-    <div class="hero-actions">
-      <a href="/pages/inscription.html?role=client" class="btn btn-accent btn-lg">Je cherche un artisan</a>
-      <a href="/pages/inscription.html?role=artisan" class="btn btn-secondary btn-lg">Je suis artisan</a>
+  <div class="hero-inner">
+    <div>
+      <span class="hero-eyebrow">Service disponible au Togo</span>
+      <h1>Trouvez un artisan, réalisez vos projets</h1>
+      <p>MrBokou met en relation en quelques minutes les particuliers et entreprises avec des artisans BTP qualifiés au Togo : électricité, plomberie, maçonnerie, peinture, climatisation, menuiserie.</p>
+      <div class="hero-actions">
+        <a href="/pages/inscription.html?role=client" class="btn btn-accent btn-lg">Je cherche un artisan</a>
+        <a href="/pages/inscription.html?role=artisan" class="btn btn-secondary btn-lg">Je suis artisan</a>
+      </div>
+      <div class="hero-trust">
+        <div class="hero-trust-item"></div>
+        <div class="hero-trust-item"></div>
+        <div class="hero-trust-item"></div>
+      </div>
+    </div>
+    <div class="hero-art">
+      <div class="hero-art-ring r1"></div>
+      <div class="hero-art-ring r2"></div>
+      <div class="hero-art-core"><img src="/img/logo.png" alt="" style="width:68px;height:68px;"/></div>
+      <div class="hero-art-chip c1"></div>
+      <div class="hero-art-chip c2"></div>
+      <div class="hero-art-chip c3"></div>
+      <div class="hero-art-chip c4"></div>
     </div>
   </div>
 </div>
 
-<main class="container" style="padding: 2.5rem 1rem 4rem;">
-  <h2 class="text-center mb-2">Nos domaines d'intervention</h2>
-  <div class="service-grid" id="service-grid"></div>
-</main>
+<section class="section" id="comment-ca-marche">
+  <div class="section-header">
+    <div class="section-eyebrow">Le processus</div>
+    <h2>Comment ça marche</h2>
+    <p>Trois étapes simples pour trouver l'artisan qu'il vous faut, sans détour.</p>
+  </div>
+  <div class="steps">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <h3>Décrivez votre besoin</h3>
+      <p>Choisissez un domaine (électricité, plomberie...) et expliquez votre projet en quelques mots.</p>
+      <div class="step-connector"></div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <h3>Recevez une réponse</h3>
+      <p>Les artisans disponibles proches de vous sont notifiés et peuvent accepter votre demande.</p>
+      <div class="step-connector"></div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <h3>Réalisez le projet</h3>
+      <p>Échangez directement avec l'artisan, suivez l'intervention, puis laissez votre avis.</p>
+    </div>
+  </div>
+</section>
 
-<div class="footer">
-  MrBokou — un service AJV Global Holdings SARL · Kpalimé, Togo
-</div>
+<section class="section section-alt" id="domaines">
+  <div class="section-header">
+    <div class="section-eyebrow">Nos domaines</div>
+    <h2>Un artisan pour chaque projet</h2>
+    <p>Des professionnels qualifiés dans les principaux corps de métier du BTP.</p>
+  </div>
+  <div class="cat-showcase-grid" id="service-grid"></div>
+</section>
+
+<section class="section" id="pourquoi">
+  <div class="section-header">
+    <div class="section-eyebrow">Pourquoi MrBokou</div>
+    <h2>Pensé pour le terrain togolais</h2>
+    <p>Une plateforme simple, pensée pour les réalités locales.</p>
+  </div>
+  <div class="features">
+    <div class="feature-card">
+      <div class="feature-icon"></div>
+      <h3>Artisans vérifiés</h3>
+      <p>Chaque profil artisan est examiné par l'équipe MrBokou avant d'être activé sur la plateforme.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"></div>
+      <h3>Proche de chez vous</h3>
+      <p>La demande est envoyée aux artisans disponibles les plus proches de votre adresse.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"></div>
+      <h3>Avis après chaque mission</h3>
+      <p>Notez l'artisan à la fin de l'intervention pour aider les prochains clients à bien choisir.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="cta-band">
+    <h2>Prêt à démarrer votre projet ?</h2>
+    <p>Créez un compte gratuitement, en tant que client ou en tant qu'artisan.</p>
+    <div class="hero-actions" style="justify-content: center;">
+      <a href="/pages/inscription.html?role=client" class="btn btn-accent btn-lg">Je cherche un artisan</a>
+      <a href="/pages/inscription.html?role=artisan" class="btn btn-outline btn-lg" style="color:white; border-color: rgba(255,255,255,0.5);">Je suis artisan</a>
+    </div>
+  </div>
+</section>
+
+<footer class="footer-main">
+  <div class="footer-grid">
+    <div>
+      <div class="footer-brand">
+        <span class="logo-badge" style="width:34px;height:34px;"><img src="/img/logo.png" alt="" style="width:24px;height:24px;"/></span>
+        MrBokou
+      </div>
+      <p style="max-width: 320px; font-size: 0.9rem;">Met en relation particuliers, entreprises et artisans BTP qualifiés au Togo.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Plateforme</h4>
+      <ul>
+        <li><a href="#comment-ca-marche">Comment ça marche</a></li>
+        <li><a href="#domaines">Domaines d'intervention</a></li>
+        <li><a href="/pages/inscription.html?role=artisan">Devenir artisan</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Compte</h4>
+      <ul>
+        <li><a href="/pages/connexion.html">Connexion</a></li>
+        <li><a href="/pages/inscription.html">Créer un compte</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>MrBokou — un service AJV Global Holdings SARL · Kpalimé, Togo</span>
+  </div>
+</footer>
 
 <div id="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/icons.js"></script>
 <script src="/js/supabase-config.js"></script>
 <script src="/js/ui.js"></script>
 <script>
+  const trustItems = [
+    { i: "shield", t: "Artisans vérifiés avant activation" },
+    { i: "pin", t: "Recherche par proximité" },
+    { i: "checkCircle", t: "Avis clients après mission" }
+  ];
+  document.querySelectorAll(".hero-trust-item").forEach((el, idx) => {
+    el.innerHTML = `${icon(trustItems[idx].i)} <span>${trustItems[idx].t}</span>`;
+  });
+
+  const chipIcons = ["bolt", "droplet", "wall", "hammer"];
+  document.querySelectorAll(".hero-art-chip").forEach((el, idx) => el.innerHTML = icon(chipIcons[idx]));
+
+  const featureIcons = ["shield", "pin", "checkCircle"];
+  document.querySelectorAll(".feature-icon").forEach((el, idx) => el.innerHTML = icon(featureIcons[idx]));
+
   const grid = document.getElementById("service-grid");
-  Object.entries(CATEGORY_ICONS).forEach(([name, icon]) => {
+  Object.entries(CATEGORY_ICONS).forEach(([name]) => {
     const card = document.createElement("div");
     card.className = "service-card";
-    card.innerHTML = `<div class="service-icon">${icon}</div><div class="service-name">${name}</div>`;
+    card.innerHTML = `<div class="service-icon">${categoryIcon(name)}</div><div class="service-name">${name}</div>`;
     grid.appendChild(card);
   });
 </script>

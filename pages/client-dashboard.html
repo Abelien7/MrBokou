@@ -11,7 +11,7 @@
 
 <nav class="navbar">
   <div class="navbar-inner">
-    <a href="/index.html" class="navbar-logo">🏠🔧 MrBokou</a>
+    <a href="/index.html" class="navbar-logo"><img src="/img/logo.png" alt="MrBokou" class="navbar-logo-mark"/>MrBokou</a>
     <div class="navbar-actions">
       <button class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>
     </div>
@@ -19,6 +19,10 @@
 </nav>
 
 <main class="container" style="padding: 1.5rem 1rem 4rem;">
+  <div class="page-header">
+    <h1>Mon espace</h1>
+    <p class="text-muted">Envoyez une demande ou suivez celles en cours.</p>
+  </div>
   <div class="tabs">
     <div class="tab-item active" data-tab="new" id="tab-new">Nouvelle demande</div>
     <div class="tab-item" data-tab="list" id="tab-list">Mes demandes</div>
@@ -38,7 +42,7 @@
           <label class="form-label" for="address">Adresse / quartier</label>
           <input class="form-control" type="text" id="address" placeholder="Ex : Kpalimé, quartier Kpodzi"/>
         </div>
-        <button type="button" class="btn btn-outline btn-sm mb-2" id="btn-geoloc">📍 Utiliser ma position actuelle</button>
+        <button type="button" class="btn btn-outline btn-sm mb-2" id="btn-geoloc"></button>
         <p class="form-hint hidden" id="geoloc-status"></p>
 
         <button type="button" class="btn btn-primary btn-block btn-lg" id="btn-submit-request">Envoyer la demande</button>
@@ -56,7 +60,7 @@
   <div class="modal">
     <div class="modal-header">
       <h2>Noter l'artisan</h2>
-      <button class="modal-close" id="btn-close-review">✕</button>
+      <button class="modal-close" id="btn-close-review"></button>
     </div>
     <div class="star-input mb-2" id="star-input">
       <span class="star" data-value="1">★</span>
@@ -75,12 +79,16 @@
 <div id="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/icons.js"></script>
 <script src="/js/supabase-config.js"></script>
 <script src="/js/ui.js"></script>
 <script src="/js/security.js"></script>
 <script src="/js/auth.js"></script>
 <script src="/js/requests.js"></script>
 <script>
+  document.getElementById("btn-geoloc").innerHTML = `${icon("pin", "icon-sm")} Utiliser ma position actuelle`;
+  document.getElementById("btn-close-review").innerHTML = icon("x", "icon-sm");
+
   let categories = [];
   let selectedCategoryId = null;
   let geoCoords = null;
@@ -167,7 +175,7 @@
     const requests = await Requests.myRequestsAsClient();
 
     if (requests.length === 0) {
-      list.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>Vous n'avez pas encore de demande.</p></div>`;
+      list.innerHTML = `<div class="empty-state">${icon("inbox")}<p>Vous n'avez pas encore de demande.</p></div>`;
       return;
     }
 

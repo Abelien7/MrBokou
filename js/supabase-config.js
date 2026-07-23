@@ -36,16 +36,16 @@ const REQUEST_STATUS_LABELS = {
   annulee:    "Annulée"
 };
 
-// ── Icônes par catégorie (emoji, pas de dépendance externe) ──
+// ── Icônes par catégorie (SVG, voir js/icons.js) ──────────────
 const CATEGORY_ICONS = {
-  "Electricité":    "⚡",
-  "Plomberie":      "🚿",
-  "Maçonnerie":     "🧱",
-  "Peinture":       "🎨",
-  "Climatisation":  "❄️",
-  "Menuiserie":     "🔨"
+  "Electricité":    "bolt",
+  "Plomberie":      "droplet",
+  "Maçonnerie":     "wall",
+  "Peinture":       "roller",
+  "Climatisation":  "snow",
+  "Menuiserie":     "hammer"
 };
 
 function categoryIcon(name) {
-  return CATEGORY_ICONS[name] || "🛠️";
+  return icon(CATEGORY_ICONS[name] || "tool", "cat-icon");
 }

@@ -11,28 +11,40 @@
 
 <nav class="navbar">
   <div class="navbar-inner">
-    <a href="/index.html" class="navbar-logo">🏠🔧 MrBokou</a>
+    <a href="/index.html" class="navbar-logo"><img src="/img/logo.png" alt="MrBokou" class="navbar-logo-mark"/>MrBokou</a>
     <div class="navbar-actions">
       <a href="/pages/inscription.html" class="btn btn-ghost btn-sm">Créer un compte</a>
     </div>
   </div>
 </nav>
 
-<div class="auth-wrap">
-  <div class="auth-card card">
-    <div class="card-body">
-      <h2 class="mb-2">Connexion</h2>
-      <form id="login-form">
-        <div class="form-group">
-          <label class="form-label" for="email">Email</label>
-          <input class="form-control" type="email" id="email" required/>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="password">Mot de passe</label>
-          <input class="form-control" type="password" id="password" required/>
-        </div>
-        <button type="submit" class="btn btn-primary btn-block btn-lg" id="submit-btn">Se connecter</button>
-      </form>
+<div class="auth-split">
+  <div class="auth-brand">
+    <h2>Content de vous revoir.</h2>
+    <p>Connectez-vous pour suivre vos demandes ou gérer vos missions d'artisan.</p>
+    <div class="auth-brand-points">
+      <div class="auth-brand-point"><span></span> Artisans vérifiés avant activation</div>
+      <div class="auth-brand-point"><span></span> Suivi en temps réel de vos demandes</div>
+      <div class="auth-brand-point"><span></span> Avis après chaque intervention</div>
+    </div>
+  </div>
+  <div class="auth-form-side">
+    <div class="auth-card card">
+      <div class="card-body">
+        <h2 class="mb-2">Connexion</h2>
+        <form id="login-form">
+          <div class="form-group">
+            <label class="form-label" for="email">Email</label>
+            <input class="form-control" type="email" id="email" required/>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="password">Mot de passe</label>
+            <input class="form-control" type="password" id="password" required/>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block btn-lg" id="submit-btn">Se connecter</button>
+        </form>
+        <p class="text-center mt-3" style="font-size:0.9rem;">Pas encore de compte ? <a href="/pages/inscription.html">Créer un compte</a></p>
+      </div>
     </div>
   </div>
 </div>
@@ -40,11 +52,15 @@
 <div id="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/icons.js"></script>
 <script src="/js/supabase-config.js"></script>
 <script src="/js/ui.js"></script>
 <script src="/js/security.js"></script>
 <script src="/js/auth.js"></script>
 <script>
+  const brandIcons = ["shield", "pin", "checkCircle"];
+  document.querySelectorAll(".auth-brand-point span").forEach((el, idx) => el.innerHTML = icon(brandIcons[idx], "icon-sm"));
+
   document.getElementById("login-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     Security.clearAllErrors("login-form");
