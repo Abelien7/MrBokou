@@ -14,6 +14,23 @@ const Nego = (() => {
     return data;
   }
 
+  // Statut du devis le plus récent pour plusieurs demandes en une seule
+  // requête (évite un aller-retour par demande dans les listes de missions).
+  async function getLatestQuoteStatuses(requestIds) {
+    if (!requestIds || requestIds.length === 0) return {};
+    const { data, error } = await supabase
+      .from("quotes")
+      .select("request_id, status, created_at")
+      .in("request_id", requestIds)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    const latest = {};
+    for (const q of data) {
+      if (!(q.request_id in latest)) latest[q.request_id] = q.status;
+    }
+    return latest;
+  }
+
   async function sendQuote({ requestId, artisanId, amount, description }) {
     const { error } = await supabase.from("quotes").insert({
       request_id: requestId, artisan_id: artisanId, amount, description
@@ -70,7 +87,7 @@ const Nego = (() => {
     return () => supabase.removeChannel(channel);
   }
 
-  return { getQuotes, sendQuote, respondQuote, getMessages, sendMessage, getPhotoUrl, subscribe };
+  return { getQuotes, getLatestQuoteStatuses, sendQuote, respondQuote, getMessages, sendMessage, getPhotoUrl, subscribe };
 })();
 
 // ---------- UI partagée (client-dashboard.html + artisan-dashboard.html) ----------
@@ -232,7 +249,7 @@ const NegoUI = (() => {
   async function onSendQuote(requestId, artisanId) {
     const amount = parseInt(el("quote-amount").value, 10);
     if (!amount || amount <= 0) return showToast("Indiquez un montant valide.", "error");
-    const description = Security.sanitize(el("quote-desc").value.trim());
+    const description = el("quote-desc").value.trim();
     try {
       await Nego.sendQuote({ requestId, artisanId, amount, description });
       showToast("Devis envoyé au client.", "success");

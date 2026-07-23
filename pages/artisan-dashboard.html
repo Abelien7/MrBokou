@@ -156,11 +156,9 @@
       return;
     }
 
-    const acceptedQuoteIds = new Set();
-    await Promise.all(missions.filter(r => r.status === "acceptee").map(async r => {
-      const quotes = await Nego.getQuotes(r.id);
-      if (quotes[0]?.status === "accepte") acceptedQuoteIds.add(r.id);
-    }));
+    const acceptedIds = missions.filter(r => r.status === "acceptee").map(r => r.id);
+    const latestStatuses = await Nego.getLatestQuoteStatuses(acceptedIds);
+    const acceptedQuoteIds = new Set(Object.entries(latestStatuses).filter(([, s]) => s === "accepte").map(([id]) => id));
 
     list.innerHTML = missions.map(r => `
       <div class="request-card">

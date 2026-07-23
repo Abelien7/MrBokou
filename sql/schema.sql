@@ -481,11 +481,33 @@ create policy "un artisan envoie ses propres documents" on storage.objects
     and (storage.foldername(name))[1] = auth.uid()::text
   );
 
+-- upload({ upsert: true }) fait un UPDATE quand le fichier existe déjà
+-- (ré-envoi d'un document corrigé) : sans cette policy, seul le tout
+-- premier envoi de chaque document fonctionnerait.
+create policy "un artisan remplace ses propres documents" on storage.objects
+  for update using (
+    bucket_id = 'artisan-documents'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
 create policy "l'artisan et l'admin voient les documents" on storage.objects
   for select using (
     bucket_id = 'artisan-documents'
     and ((storage.foldername(name))[1] = auth.uid()::text or get_user_role() = 'admin')
   );
+
+-- ============================================================
+-- Index (Postgres n'indexe pas les clés étrangères automatiquement ;
+-- ces colonnes sont filtrées en permanence par les requêtes et les
+-- policies RLS ci-dessus)
+-- ============================================================
+create index if not exists idx_requests_client_id on requests(client_id);
+create index if not exists idx_requests_artisan_id on requests(artisan_id);
+create index if not exists idx_requests_category_id on requests(category_id);
+create index if not exists idx_requests_status on requests(status);
+create index if not exists idx_quotes_request_id on quotes(request_id);
+create index if not exists idx_messages_request_id on messages(request_id);
+create index if not exists idx_reviews_artisan_id on reviews(artisan_id);
 
 -- ============================================================
 -- Realtime : activer les diffusions temps réel

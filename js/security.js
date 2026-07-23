@@ -4,12 +4,6 @@
 
 const Security = (() => {
 
-  function sanitize(str) {
-    if (typeof str !== "string") return "";
-    const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" };
-    return str.replace(/[&<>"']/g, m => map[m]);
-  }
-
   function safeText(str) {
     const el = document.createElement("span");
     el.textContent = str;
@@ -56,7 +50,7 @@ const Security = (() => {
   }
 
   return {
-    sanitize, safeText, isValidTogoPhone, isValidEmail,
+    safeText, isValidTogoPhone, isValidEmail,
     showFieldError, clearFieldError, clearAllErrors
   };
 })();

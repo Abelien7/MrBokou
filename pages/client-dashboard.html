@@ -138,8 +138,8 @@
     try {
       await Requests.create({
         categoryId: selectedCategoryId,
-        description: Security.sanitize(description),
-        addressText: Security.sanitize(address),
+        description,
+        addressText: address,
         lat: geoCoords?.lat ?? null,
         lng: geoCoords?.lng ?? null
       });
@@ -186,7 +186,8 @@
       return;
     }
 
-    const { data: myReviews } = await supabase.from("reviews").select("request_id");
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: myReviews } = await supabase.from("reviews").select("request_id").eq("client_id", user.id);
     const reviewedIds = new Set((myReviews || []).map(r => r.request_id));
 
     list.innerHTML = requests.map(r => `
@@ -240,7 +241,7 @@
         requestId: reviewTarget.requestId,
         artisanId: reviewTarget.artisanId,
         rating: selectedStars,
-        comment: Security.sanitize(document.getElementById("review-comment").value.trim())
+        comment: document.getElementById("review-comment").value.trim()
       });
       document.getElementById("review-modal").classList.add("hidden");
       showToast("Merci pour votre avis !", "success");
