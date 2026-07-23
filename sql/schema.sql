@@ -96,6 +96,55 @@ create trigger trg_update_artisan_rating
   for each row execute function update_artisan_rating();
 
 -- ============================================================
+-- Création automatique du profil à l'inscription
+-- ============================================================
+-- Le profil (et le profil artisan) est créé par ce trigger, pas par le client :
+-- ça fonctionne même quand la confirmation par email est activée et qu'il
+-- n'existe donc pas encore de session pour passer les policies RLS classiques
+-- au moment du signUp(). Les infos viennent des métadonnées passées à
+-- supabase.auth.signUp({ options: { data: {...} } }) côté JS (voir js/auth.js).
+create or replace function handle_new_user()
+returns trigger
+language plpgsql
+security definer
+as $$
+declare
+  v_role text := coalesce(new.raw_user_meta_data->>'role', 'client');
+begin
+  if v_role not in ('client', 'artisan') then
+    v_role := 'client';
+  end if;
+
+  insert into public.profiles (id, role, full_name, phone, city)
+  values (
+    new.id,
+    v_role,
+    coalesce(new.raw_user_meta_data->>'full_name', ''),
+    coalesce(new.raw_user_meta_data->>'phone', ''),
+    new.raw_user_meta_data->>'city'
+  );
+
+  if v_role = 'artisan' then
+    insert into public.artisan_profiles (profile_id, categories)
+    values (
+      new.id,
+      coalesce(
+        (select array_agg(elem::uuid) from jsonb_array_elements_text(new.raw_user_meta_data->'categories') as elem),
+        '{}'::uuid[]
+      )
+    );
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_handle_new_user on auth.users;
+create trigger trg_handle_new_user
+  after insert on auth.users
+  for each row execute function handle_new_user();
+
+-- ============================================================
 -- Row Level Security
 -- ============================================================
 -- Verrous anti-triche pour une place de marché à double face :

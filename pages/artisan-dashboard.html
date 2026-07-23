@@ -100,8 +100,19 @@
       return;
     }
 
-    list.innerHTML = requests.map(r => {
-      const dist = myCoords ? distanceKm(myCoords.lat, myCoords.lng, r.lat, r.lng) : null;
+    // Les plus proches en premier ; celles sans position (ou si on n'a pas la
+    // nôtre) restent à la fin, triées par ancienneté comme avant.
+    const withDist = requests.map(r => ({
+      r, dist: myCoords ? distanceKm(myCoords.lat, myCoords.lng, r.lat, r.lng) : null
+    }));
+    withDist.sort((a, b) => {
+      if (a.dist === null && b.dist === null) return 0;
+      if (a.dist === null) return 1;
+      if (b.dist === null) return -1;
+      return a.dist - b.dist;
+    });
+
+    list.innerHTML = withDist.map(({ r, dist }) => {
       return `
       <div class="request-card">
         <div class="flex-between">

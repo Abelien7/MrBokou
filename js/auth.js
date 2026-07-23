@@ -7,29 +7,21 @@ const Auth = (() => {
   let currentRole = null;
 
   // ---------- Inscription ----------
-  async function signup({ email, password, fullName, phone, city, role }) {
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) throw new Error(getAuthError(error.message));
-
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: data.user.id,
-      role,
-      full_name: fullName,
-      phone,
-      city
+  // Le profil (et le profil artisan) est créé côté serveur par un trigger sur
+  // auth.users à partir des métadonnées ci-dessous : ça marche même quand la
+  // confirmation par email est activée et qu'aucune session n'existe encore
+  // au moment de l'inscription (voir sql/schema.sql : handle_new_user()).
+  async function signup({ email, password, fullName, phone, city, role, categories }) {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName, phone, city, role, categories: categories || [] } }
     });
-    if (profileError) throw new Error("Compte créé mais profil non enregistré : " + profileError.message);
-
-    if (role === ROLES.ARTISAN) {
-      const { error: artisanError } = await supabase.from("artisan_profiles").insert({
-        profile_id: data.user.id
-      });
-      if (artisanError) throw new Error("Profil artisan non initialisé : " + artisanError.message);
-    }
+    if (error) throw new Error(getAuthError(error.message));
 
     currentUser = data.user;
     currentRole = role;
-    return { user: data.user, role };
+    return { user: data.user, role, needsConfirmation: !data.session };
   }
 
   // ---------- Connexion ----------

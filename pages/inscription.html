@@ -155,14 +155,19 @@
     btn.disabled = true;
     btn.textContent = "Création...";
 
-    try {
-      const { role } = await Auth.signup({ email, password, fullName, phone, city, role: selectedRole });
+    const selectedCats = selectedRole === ROLES.ARTISAN
+      ? [...document.querySelectorAll(".cat-check:checked")].map(el => el.value)
+      : [];
 
-      if (selectedRole === ROLES.ARTISAN) {
-        const selectedCats = [...document.querySelectorAll(".cat-check:checked")].map(el => el.value);
-        if (selectedCats.length > 0) {
-          await Artisans.updateOnboarding({ categories: selectedCats, bio: "", ville: city });
-        }
+    try {
+      const { needsConfirmation } = await Auth.signup({
+        email, password, fullName, phone, city, role: selectedRole, categories: selectedCats
+      });
+
+      if (needsConfirmation) {
+        showToast("Compte créé ! Vérifiez votre boîte mail pour confirmer votre adresse, puis connectez-vous.", "success");
+        window.location.href = "/pages/connexion.html";
+      } else if (selectedRole === ROLES.ARTISAN) {
         showToast("Compte créé ! Votre profil artisan sera validé sous peu.", "success");
         window.location.href = "/pages/artisan-dashboard.html";
       } else {
