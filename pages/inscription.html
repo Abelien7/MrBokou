@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Inscription — MrBokou</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="/index.html" class="navbar-logo">🏠🔧 MrBokou</a>
+    <div class="navbar-actions">
+      <a href="/pages/connexion.html" class="btn btn-ghost btn-sm">J'ai déjà un compte</a>
+    </div>
+  </div>
+</nav>
+
+<div class="auth-wrap">
+  <div class="auth-card card">
+    <div class="card-body">
+      <h2 class="mb-2">Créer un compte</h2>
+
+      <div class="role-toggle">
+        <button type="button" id="role-client" class="active">Je suis client</button>
+        <button type="button" id="role-artisan">Je suis artisan</button>
+      </div>
+
+      <form id="signup-form">
+        <div class="form-group">
+          <label class="form-label" for="full-name">Nom complet</label>
+          <input class="form-control" type="text" id="full-name" required/>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="phone">Téléphone</label>
+          <input class="form-control" type="tel" id="phone" placeholder="90123456" required/>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="city">Ville</label>
+          <input class="form-control" type="text" id="city" placeholder="Kpalimé, Lomé..." required/>
+        </div>
+
+        <div id="artisan-fields" class="hidden">
+          <div class="form-group">
+            <label class="form-label">Domaines de compétence</label>
+            <div id="category-checkboxes"></div>
+            <p class="form-hint">Votre profil sera activé après validation par MrBokou.</p>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="email">Email</label>
+          <input class="form-control" type="email" id="email" required/>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Mot de passe</label>
+          <input class="form-control" type="password" id="password" minlength="6" required/>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="submit-btn">Créer mon compte</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/security.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/requests.js"></script>
+<script src="/js/artisans.js"></script>
+<script>
+  let selectedRole = ROLES.CLIENT;
+  let categories = [];
+
+  const btnClient = document.getElementById("role-client");
+  const btnArtisan = document.getElementById("role-artisan");
+  const artisanFields = document.getElementById("artisan-fields");
+
+  function setRole(role) {
+    selectedRole = role;
+    btnClient.classList.toggle("active", role === ROLES.CLIENT);
+    btnArtisan.classList.toggle("active", role === ROLES.ARTISAN);
+    artisanFields.classList.toggle("hidden", role !== ROLES.ARTISAN);
+  }
+  btnClient.addEventListener("click", () => setRole(ROLES.CLIENT));
+  btnArtisan.addEventListener("click", () => setRole(ROLES.ARTISAN));
+
+  const params = new URLSearchParams(location.search);
+  if (params.get("role") === "artisan") setRole(ROLES.ARTISAN);
+
+  (async () => {
+    try {
+      categories = await Requests.getCategories();
+      const box = document.getElementById("category-checkboxes");
+      box.innerHTML = categories.map(c => `
+        <label class="checkbox-row">
+          <input type="checkbox" value="${c.id}" class="cat-check"/>
+          ${categoryIcon(c.name)} ${Security.safeText(c.name)}
+        </label>
+      `).join("");
+    } catch (e) { /* catégories chargées plus tard si erreur réseau */ }
+  })();
+
+  document.getElementById("signup-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    Security.clearAllErrors("signup-form");
+
+    const fullName = document.getElementById("full-name").value.trim();
+    const phone = document.getElementById("phone").value.trim();
+    const city = document.getElementById("city").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    let hasError = false;
+    if (fullName.length < 2) { Security.showFieldError("full-name", "Nom trop court."); hasError = true; }
+    if (!Security.isValidTogoPhone(phone)) { Security.showFieldError("phone", "Numéro invalide. Exemple : 90123456"); hasError = true; }
+    if (!Security.isValidEmail(email)) { Security.showFieldError("email", "Email invalide."); hasError = true; }
+    if (password.length < 6) { Security.showFieldError("password", "Minimum 6 caractères."); hasError = true; }
+    if (hasError) return;
+
+    const btn = document.getElementById("submit-btn");
+    btn.disabled = true;
+    btn.textContent = "Création...";
+
+    try {
+      const { role } = await Auth.signup({ email, password, fullName, phone, city, role: selectedRole });
+
+      if (selectedRole === ROLES.ARTISAN) {
+        const selectedCats = [...document.querySelectorAll(".cat-check:checked")].map(el => el.value);
+        if (selectedCats.length > 0) {
+          await Artisans.updateOnboarding({ categories: selectedCats, bio: "", ville: city });
+        }
+        showToast("Compte créé ! Votre profil artisan sera validé sous peu.", "success");
+        window.location.href = "/pages/artisan-dashboard.html";
+      } else {
+        showToast("Compte créé avec succès !", "success");
+        window.location.href = "/pages/client-dashboard.html";
+      }
+    } catch (err) {
+      showToast(err.message, "error");
+      btn.disabled = false;
+      btn.textContent = "Créer mon compte";
+    }
+  });
+</script>
+</body>
+</html>

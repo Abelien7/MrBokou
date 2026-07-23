@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Administration — MrBokou</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="/index.html" class="navbar-logo">🏠🔧 MrBokou <span>Admin</span></a>
+    <div class="navbar-actions">
+      <button class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>
+    </div>
+  </div>
+</nav>
+
+<main class="container" style="padding: 1.5rem 1rem 4rem;">
+
+  <div class="grid-3 mb-3">
+    <div class="stat-card"><div class="stat-label">Artisans à valider</div><div class="stat-value" id="stat-pending">—</div></div>
+    <div class="stat-card"><div class="stat-label">Artisans approuvés</div><div class="stat-value stat-accent" id="stat-approved">—</div></div>
+    <div class="stat-card"><div class="stat-label">Demandes en attente</div><div class="stat-value" id="stat-requests">—</div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab-item active" data-tab="pending" id="tab-pending-artisans">À valider</div>
+    <div class="tab-item" data-tab="all-artisans" id="tab-all-artisans">Tous les artisans</div>
+    <div class="tab-item" data-tab="requests" id="tab-all-requests">Toutes les demandes</div>
+  </div>
+
+  <section id="panel-pending"><div id="pending-list"></div></section>
+  <section id="panel-all-artisans" class="hidden">
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Nom</th><th>Téléphone</th><th>Ville</th><th>Statut</th><th>Note</th></tr></thead>
+        <tbody id="artisans-table-body"></tbody>
+      </table>
+    </div>
+  </section>
+  <section id="panel-requests" class="hidden">
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Client</th><th>Service</th><th>Adresse</th><th>Statut</th><th>Créée</th></tr></thead>
+        <tbody id="requests-table-body"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/security.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/requests.js"></script>
+<script src="/js/artisans.js"></script>
+<script>
+  document.getElementById("btn-logout").addEventListener("click", () => Auth.logout());
+
+  document.querySelectorAll(".tab-item").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab-item").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      document.getElementById("panel-pending").classList.toggle("hidden", tab.dataset.tab !== "pending");
+      document.getElementById("panel-all-artisans").classList.toggle("hidden", tab.dataset.tab !== "all-artisans");
+      document.getElementById("panel-requests").classList.toggle("hidden", tab.dataset.tab !== "requests");
+      if (tab.dataset.tab === "pending") loadPending();
+      if (tab.dataset.tab === "all-artisans") loadAllArtisans();
+      if (tab.dataset.tab === "requests") loadAllRequests();
+    });
+  });
+
+  async function loadPending() {
+    const list = document.getElementById("pending-list");
+    const pending = await Artisans.pendingApplications();
+    if (pending.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="icon">✅</div><p>Aucune demande d'inscription en attente.</p></div>`;
+    } else {
+      list.innerHTML = pending.map(a => `
+        <div class="request-card">
+          <div class="request-title">${Security.safeText(a.profiles.full_name)}</div>
+          <div class="request-meta">${Security.safeText(a.profiles.phone)} · ${Security.safeText(a.profiles.city || "")}</div>
+          <div class="request-desc">${Security.safeText(a.bio || "Aucune bio renseignée.")}</div>
+          <div class="request-actions">
+            <button class="btn btn-primary btn-sm" onclick="setArtisanStatus('${a.profile_id}', 'approuve')">Approuver</button>
+            <button class="btn btn-danger btn-sm" onclick="setArtisanStatus('${a.profile_id}', 'rejete')">Rejeter</button>
+          </div>
+        </div>
+      `).join("");
+    }
+    updateStats();
+  }
+
+  async function setArtisanStatus(profileId, status) {
+    try {
+      await Artisans.setStatus(profileId, status);
+      showToast("Statut mis à jour.", "success");
+      loadPending();
+    } catch (err) { showToast(err.message, "error"); }
+  }
+
+  async function loadAllArtisans() {
+    const artisans = await Artisans.allArtisans();
+    document.getElementById("artisans-table-body").innerHTML = artisans.map(a => `
+      <tr>
+        <td>${Security.safeText(a.profiles.full_name)}</td>
+        <td>${Security.safeText(a.profiles.phone)}</td>
+        <td>${Security.safeText(a.profiles.city || "")}</td>
+        <td><span class="badge badge-${a.status}">${a.status}</span></td>
+        <td>${a.rating_count > 0 ? `★ ${a.rating_avg} (${a.rating_count})` : "—"}</td>
+      </tr>
+    `).join("");
+  }
+
+  async function loadAllRequests() {
+    const { data, error } = await supabase
+      .from("requests")
+      .select("*, service_categories(name), client:client_id(full_name)")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) return showToast(error.message, "error");
+    document.getElementById("requests-table-body").innerHTML = data.map(r => `
+      <tr>
+        <td>${Security.safeText(r.client?.full_name || "")}</td>
+        <td>${categoryIcon(r.service_categories?.name)} ${Security.safeText(r.service_categories?.name || "")}</td>
+        <td>${Security.safeText(r.address_text)}</td>
+        <td><span class="badge badge-${r.status}">${REQUEST_STATUS_LABELS[r.status]}</span></td>
+        <td>${timeAgo(r.created_at)}</td>
+      </tr>
+    `).join("");
+    updateStats();
+  }
+
+  async function updateStats() {
+    const [{ count: pendingCount }, { count: approvedCount }, { count: reqCount }] = await Promise.all([
+      supabase.from("artisan_profiles").select("*", { count: "exact", head: true }).eq("status", "en_attente"),
+      supabase.from("artisan_profiles").select("*", { count: "exact", head: true }).eq("status", "approuve"),
+      supabase.from("requests").select("*", { count: "exact", head: true }).eq("status", "en_attente")
+    ]);
+    document.getElementById("stat-pending").textContent = pendingCount ?? "—";
+    document.getElementById("stat-approved").textContent = approvedCount ?? "—";
+    document.getElementById("stat-requests").textContent = reqCount ?? "—";
+  }
+
+  (async () => {
+    await Auth.requireRole(ROLES.ADMIN);
+    loadPending();
+  })();
+</script>
+</body>
+</html>

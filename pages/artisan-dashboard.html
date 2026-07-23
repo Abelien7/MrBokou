@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Espace artisan — MrBokou</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="/index.html" class="navbar-logo">🏠🔧 MrBokou</a>
+    <div class="navbar-actions">
+      <button class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>
+    </div>
+  </div>
+</nav>
+
+<main class="container" style="padding: 1.5rem 1rem 4rem;">
+
+  <div id="status-banner" class="hidden card mb-2"><div class="card-body"></div></div>
+
+  <div class="avail-switch mb-2">
+    <label class="switch">
+      <input type="checkbox" id="avail-toggle" disabled/>
+      <span class="slider"></span>
+    </label>
+    <div>
+      <strong id="avail-label">Indisponible</strong>
+      <p class="text-muted">Activez pour recevoir de nouvelles demandes près de vous.</p>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab-item active" data-tab="pending" id="tab-pending">Demandes disponibles</div>
+    <div class="tab-item" data-tab="missions" id="tab-missions">Mes missions</div>
+  </div>
+
+  <section id="panel-pending"><div id="pending-list"></div></section>
+  <section id="panel-missions" class="hidden"><div id="missions-list"></div></section>
+</main>
+
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/security.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/requests.js"></script>
+<script src="/js/artisans.js"></script>
+<script>
+  let profile = null;
+  let myCoords = null;
+
+  document.getElementById("btn-logout").addEventListener("click", () => Auth.logout());
+
+  document.querySelectorAll(".tab-item").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab-item").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      const isPending = tab.dataset.tab === "pending";
+      document.getElementById("panel-pending").classList.toggle("hidden", !isPending);
+      document.getElementById("panel-missions").classList.toggle("hidden", isPending);
+      if (isPending) loadPending(); else loadMissions();
+    });
+  });
+
+  document.getElementById("avail-toggle").addEventListener("change", async (e) => {
+    const isAvailable = e.target.checked;
+    document.getElementById("avail-label").textContent = isAvailable ? "Disponible" : "Indisponible";
+    try {
+      if (isAvailable && !myCoords) myCoords = await getBrowserLocation();
+      await Artisans.setAvailability(isAvailable, myCoords);
+      showToast(isAvailable ? "Vous êtes maintenant disponible." : "Vous êtes passé indisponible.", "success");
+    } catch (err) {
+      showToast(err.message, "error");
+      e.target.checked = !isAvailable;
+    }
+  });
+
+  async function loadPending() {
+    const list = document.getElementById("pending-list");
+    if (profile.status !== "approuve") {
+      list.innerHTML = `<div class="empty-state"><div class="icon">⏳</div><p>Votre profil doit être validé pour recevoir des demandes.</p></div>`;
+      return;
+    }
+    const categoryIds = profile.categories || [];
+    const requests = await Requests.pendingForArtisan(categoryIds);
+
+    if (requests.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="icon">🔧</div><p>Aucune demande en attente dans vos domaines pour le moment.</p></div>`;
+      return;
+    }
+
+    list.innerHTML = requests.map(r => {
+      const dist = myCoords ? distanceKm(myCoords.lat, myCoords.lng, r.lat, r.lng) : null;
+      return `
+      <div class="request-card">
+        <div class="flex-between">
+          <div class="request-title">${categoryIcon(r.service_categories?.name)} ${Security.safeText(r.service_categories?.name || "")}</div>
+          <span class="text-muted">${timeAgo(r.created_at)}</span>
+        </div>
+        <div class="request-meta">${Security.safeText(r.address_text)}${dist !== null ? ` · ~${dist.toFixed(1)} km` : ""}</div>
+        <div class="request-desc">${Security.safeText(r.description)}</div>
+        <div class="request-meta">Client : ${Security.safeText(r.client?.full_name || "")}</div>
+        <div class="request-actions">
+          <button class="btn btn-primary btn-sm" onclick="acceptRequest('${r.id}')">Accepter cette demande</button>
+        </div>
+      </div>
+    `;
+    }).join("");
+  }
+
+  async function acceptRequest(id) {
+    try {
+      await Requests.accept(id);
+      showToast("Demande acceptée ! Contactez le client.", "success");
+      loadPending();
+    } catch (err) {
+      showToast(err.message, "error");
+      loadPending();
+    }
+  }
+
+  async function loadMissions() {
+    const list = document.getElementById("missions-list");
+    const missions = await Requests.myMissionsAsArtisan();
+
+    if (missions.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>Aucune mission pour l'instant.</p></div>`;
+      return;
+    }
+
+    list.innerHTML = missions.map(r => `
+      <div class="request-card">
+        <div class="flex-between">
+          <div class="request-title">${categoryIcon(r.service_categories?.name)} ${Security.safeText(r.service_categories?.name || "")}</div>
+          <span class="badge badge-${r.status}">${REQUEST_STATUS_LABELS[r.status]}</span>
+        </div>
+        <div class="request-meta">${Security.safeText(r.address_text)} · ${timeAgo(r.created_at)}</div>
+        <div class="request-desc">${Security.safeText(r.description)}</div>
+        <div class="request-meta">Client : ${Security.safeText(r.client?.full_name || "")} · ${Security.safeText(r.client?.phone || "")}</div>
+        <div class="request-actions">
+          ${r.status === "acceptee" ? `<button class="btn btn-primary btn-sm" onclick="startMission('${r.id}')">Démarrer l'intervention</button>` : ""}
+          ${r.status === "en_cours" ? `<button class="btn btn-accent btn-sm" onclick="completeMission('${r.id}')">Marquer terminé</button>` : ""}
+        </div>
+      </div>
+    `).join("");
+  }
+
+  async function startMission(id) {
+    try { await Requests.startWork(id); loadMissions(); }
+    catch (err) { showToast(err.message, "error"); }
+  }
+  async function completeMission(id) {
+    try {
+      await Requests.complete(id);
+      showToast("Mission marquée terminée.", "success");
+      loadMissions();
+    } catch (err) { showToast(err.message, "error"); }
+  }
+
+  function renderStatusBanner() {
+    const banner = document.getElementById("status-banner");
+    if (profile.status === "approuve") { banner.classList.add("hidden"); return; }
+    banner.classList.remove("hidden");
+    const body = banner.querySelector(".card-body");
+    if (profile.status === "en_attente") {
+      body.innerHTML = `⏳ <strong>Profil en cours de validation.</strong> L'équipe MrBokou examine votre inscription.`;
+    } else {
+      body.innerHTML = `❌ <strong>Profil non validé.</strong> Contactez MrBokou pour plus d'informations.`;
+    }
+  }
+
+  (async () => {
+    await Auth.requireRole(ROLES.ARTISAN);
+    profile = await Artisans.myProfile();
+    renderStatusBanner();
+
+    const toggle = document.getElementById("avail-toggle");
+    toggle.disabled = profile.status !== "approuve";
+    toggle.checked = profile.is_available;
+    document.getElementById("avail-label").textContent = profile.is_available ? "Disponible" : "Indisponible";
+    if (profile.lat && profile.lng) myCoords = { lat: profile.lat, lng: profile.lng };
+
+    loadPending();
+    Requests.subscribe(() => {
+      if (!document.getElementById("panel-pending").classList.contains("hidden")) loadPending();
+      if (!document.getElementById("panel-missions").classList.contains("hidden")) loadMissions();
+    });
+  })();
+</script>
+</body>
+</html>

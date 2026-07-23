@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MrBokou — Trouvez un artisan, réalisez vos projets</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <span class="navbar-logo">🏠🔧 MrBokou</span>
+    <div class="navbar-actions">
+      <a href="/pages/connexion.html" class="btn btn-ghost btn-sm">Connexion</a>
+      <a href="/pages/inscription.html" class="btn btn-primary btn-sm">Créer un compte</a>
+    </div>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="container">
+    <h1>Trouvez un artisan, réalisez vos projets</h1>
+    <p>MrBokou met en relation en quelques minutes les particuliers et entreprises avec des artisans BTP qualifiés au Togo : électricité, plomberie, maçonnerie, peinture, climatisation, menuiserie.</p>
+    <div class="hero-actions">
+      <a href="/pages/inscription.html?role=client" class="btn btn-accent btn-lg">Je cherche un artisan</a>
+      <a href="/pages/inscription.html?role=artisan" class="btn btn-secondary btn-lg">Je suis artisan</a>
+    </div>
+  </div>
+</div>
+
+<main class="container" style="padding: 2.5rem 1rem 4rem;">
+  <h2 class="text-center mb-2">Nos domaines d'intervention</h2>
+  <div class="service-grid" id="service-grid"></div>
+</main>
+
+<div class="footer">
+  MrBokou — un service AJV Global Holdings SARL · Kpalimé, Togo
+</div>
+
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/ui.js"></script>
+<script>
+  const grid = document.getElementById("service-grid");
+  Object.entries(CATEGORY_ICONS).forEach(([name, icon]) => {
+    const card = document.createElement("div");
+    card.className = "service-card";
+    card.innerHTML = `<div class="service-icon">${icon}</div><div class="service-name">${name}</div>`;
+    grid.appendChild(card);
+  });
+</script>
+</body>
+</html>

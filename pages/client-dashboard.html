@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mon espace — MrBokou</title>
+  <link rel="stylesheet" href="/css/style.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="/index.html" class="navbar-logo">🏠🔧 MrBokou</a>
+    <div class="navbar-actions">
+      <button class="btn btn-ghost btn-sm" id="btn-logout">Déconnexion</button>
+    </div>
+  </div>
+</nav>
+
+<main class="container" style="padding: 1.5rem 1rem 4rem;">
+  <div class="tabs">
+    <div class="tab-item active" data-tab="new" id="tab-new">Nouvelle demande</div>
+    <div class="tab-item" data-tab="list" id="tab-list">Mes demandes</div>
+  </div>
+
+  <section id="panel-new">
+    <div class="card">
+      <div class="card-body">
+        <h3 class="mb-2">De quel service avez-vous besoin ?</h3>
+        <div class="service-grid mb-2" id="category-grid"></div>
+
+        <div class="form-group">
+          <label class="form-label" for="description">Décrivez votre besoin</label>
+          <textarea class="form-control" id="description" placeholder="Ex : fuite d'eau sous l'évier de la cuisine"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="address">Adresse / quartier</label>
+          <input class="form-control" type="text" id="address" placeholder="Ex : Kpalimé, quartier Kpodzi"/>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm mb-2" id="btn-geoloc">📍 Utiliser ma position actuelle</button>
+        <p class="form-hint hidden" id="geoloc-status"></p>
+
+        <button type="button" class="btn btn-primary btn-block btn-lg" id="btn-submit-request">Envoyer la demande</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="panel-list" class="hidden">
+    <div id="requests-list"></div>
+  </section>
+</main>
+
+<!-- Modal notation -->
+<div class="modal-overlay hidden" id="review-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Noter l'artisan</h2>
+      <button class="modal-close" id="btn-close-review">✕</button>
+    </div>
+    <div class="star-input mb-2" id="star-input">
+      <span class="star" data-value="1">★</span>
+      <span class="star" data-value="2">★</span>
+      <span class="star" data-value="3">★</span>
+      <span class="star" data-value="4">★</span>
+      <span class="star" data-value="5">★</span>
+    </div>
+    <div class="form-group">
+      <textarea class="form-control" id="review-comment" placeholder="Un commentaire (facultatif)"></textarea>
+    </div>
+    <button class="btn btn-primary btn-block" id="btn-submit-review">Envoyer mon avis</button>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/security.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/requests.js"></script>
+<script>
+  let categories = [];
+  let selectedCategoryId = null;
+  let geoCoords = null;
+  let unsubscribeRealtime = null;
+  let reviewTarget = null; // { requestId, artisanId }
+  let selectedStars = 0;
+
+  document.getElementById("btn-logout").addEventListener("click", () => Auth.logout());
+
+  document.querySelectorAll(".tab-item").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab-item").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      const isNew = tab.dataset.tab === "new";
+      document.getElementById("panel-new").classList.toggle("hidden", !isNew);
+      document.getElementById("panel-list").classList.toggle("hidden", isNew);
+      if (!isNew) loadRequests();
+    });
+  });
+
+  document.getElementById("btn-geoloc").addEventListener("click", async () => {
+    const status = document.getElementById("geoloc-status");
+    status.classList.remove("hidden");
+    status.textContent = "Localisation en cours...";
+    geoCoords = await getBrowserLocation();
+    status.textContent = geoCoords ? "Position enregistrée ✓" : "Position indisponible, l'adresse écrite suffit.";
+  });
+
+  document.getElementById("btn-submit-request").addEventListener("click", async () => {
+    const description = document.getElementById("description").value.trim();
+    const address = document.getElementById("address").value.trim();
+
+    if (!selectedCategoryId) return showToast("Choisissez un domaine de service.", "error");
+    if (description.length < 5) return showToast("Décrivez votre besoin (5 caractères min).", "error");
+    if (address.length < 3) return showToast("Indiquez une adresse ou un quartier.", "error");
+
+    const btn = document.getElementById("btn-submit-request");
+    btn.disabled = true;
+    btn.textContent = "Envoi...";
+    try {
+      await Requests.create({
+        categoryId: selectedCategoryId,
+        description: Security.sanitize(description),
+        addressText: Security.sanitize(address),
+        lat: geoCoords?.lat ?? null,
+        lng: geoCoords?.lng ?? null
+      });
+      showToast("Demande envoyée aux artisans disponibles !", "success");
+      document.getElementById("description").value = "";
+      document.getElementById("address").value = "";
+      geoCoords = null;
+      document.getElementById("geoloc-status").classList.add("hidden");
+      document.querySelectorAll(".service-card").forEach(c => c.classList.remove("selected"));
+      selectedCategoryId = null;
+      document.getElementById("tab-list").click();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Envoyer la demande";
+    }
+  });
+
+  async function loadCategories() {
+    categories = await Requests.getCategories();
+    const grid = document.getElementById("category-grid");
+    grid.innerHTML = categories.map(c => `
+      <div class="service-card" data-id="${c.id}">
+        <div class="service-icon">${categoryIcon(c.name)}</div>
+        <div class="service-name">${Security.safeText(c.name)}</div>
+      </div>
+    `).join("");
+    grid.querySelectorAll(".service-card").forEach(card => {
+      card.addEventListener("click", () => {
+        grid.querySelectorAll(".service-card").forEach(c => c.classList.remove("selected"));
+        card.classList.add("selected");
+        selectedCategoryId = card.dataset.id;
+      });
+    });
+  }
+
+  async function loadRequests() {
+    const list = document.getElementById("requests-list");
+    const requests = await Requests.myRequestsAsClient();
+
+    if (requests.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>Vous n'avez pas encore de demande.</p></div>`;
+      return;
+    }
+
+    const { data: myReviews } = await supabase.from("reviews").select("request_id");
+    const reviewedIds = new Set((myReviews || []).map(r => r.request_id));
+
+    list.innerHTML = requests.map(r => `
+      <div class="request-card">
+        <div class="flex-between">
+          <div class="request-title">${categoryIcon(r.service_categories?.name)} ${Security.safeText(r.service_categories?.name || "")}</div>
+          <span class="badge badge-${r.status}">${REQUEST_STATUS_LABELS[r.status]}</span>
+        </div>
+        <div class="request-meta">${Security.safeText(r.address_text)} · ${timeAgo(r.created_at)}</div>
+        <div class="request-desc">${Security.safeText(r.description)}</div>
+        ${r.artisan ? `<div class="request-meta">Artisan : ${Security.safeText(r.artisan.full_name)} · ${Security.safeText(r.artisan.phone)}</div>` : ""}
+        <div class="request-actions">
+          ${r.status === "en_attente" ? `<button class="btn btn-danger btn-sm" onclick="cancelRequest('${r.id}')">Annuler</button>` : ""}
+          ${r.status === "terminee" && !reviewedIds.has(r.id) ? `<button class="btn btn-accent btn-sm" onclick="openReview('${r.id}','${r.artisan_id}')">Noter l'artisan</button>` : ""}
+        </div>
+      </div>
+    `).join("");
+  }
+
+  async function cancelRequest(id) {
+    try {
+      await Requests.cancel(id);
+      showToast("Demande annulée.", "success");
+      loadRequests();
+    } catch (err) { showToast(err.message, "error"); }
+  }
+
+  function openReview(requestId, artisanId) {
+    reviewTarget = { requestId, artisanId };
+    selectedStars = 0;
+    document.querySelectorAll("#star-input .star").forEach(s => s.classList.remove("active"));
+    document.getElementById("review-comment").value = "";
+    document.getElementById("review-modal").classList.remove("hidden");
+  }
+  document.getElementById("btn-close-review").addEventListener("click", () => {
+    document.getElementById("review-modal").classList.add("hidden");
+  });
+  document.querySelectorAll("#star-input .star").forEach(star => {
+    star.addEventListener("click", () => {
+      selectedStars = parseInt(star.dataset.value, 10);
+      document.querySelectorAll("#star-input .star").forEach(s => {
+        s.classList.toggle("active", parseInt(s.dataset.value, 10) <= selectedStars);
+      });
+    });
+  });
+  document.getElementById("btn-submit-review").addEventListener("click", async () => {
+    if (selectedStars < 1) return showToast("Choisissez une note.", "error");
+    try {
+      await Requests.submitReview({
+        requestId: reviewTarget.requestId,
+        artisanId: reviewTarget.artisanId,
+        rating: selectedStars,
+        comment: Security.sanitize(document.getElementById("review-comment").value.trim())
+      });
+      document.getElementById("review-modal").classList.add("hidden");
+      showToast("Merci pour votre avis !", "success");
+      loadRequests();
+    } catch (err) { showToast(err.message, "error"); }
+  });
+
+  (async () => {
+    await Auth.requireRole(ROLES.CLIENT);
+    await loadCategories();
+    unsubscribeRealtime = Requests.subscribe(() => {
+      if (!document.getElementById("panel-list").classList.contains("hidden")) loadRequests();
+    });
+  })();
+</script>
+</body>
+</html>
