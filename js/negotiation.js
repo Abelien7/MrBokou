@@ -36,30 +36,6 @@ const Nego = (() => {
     return data;
   }
 
-  // Redimensionne (max 1280px de côté) et recompresse en JPEG ~75% avant
-  // l'envoi : les photos de chantier prises au téléphone pèsent souvent
-  // plusieurs Mo, inutile sur un forfait data togolais.
-  function compressImage(file, maxDim = 1280, quality = 0.75) {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(file);
-      img.onload = () => {
-        URL.revokeObjectURL(objectUrl);
-        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(
-          blob => blob ? resolve(blob) : reject(new Error("Compression de l'image impossible.")),
-          "image/jpeg", quality
-        );
-      };
-      img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("Image invalide.")); };
-      img.src = objectUrl;
-    });
-  }
-
   async function sendMessage({ requestId, senderId, content, imageFile }) {
     let imagePath = null;
     if (imageFile) {

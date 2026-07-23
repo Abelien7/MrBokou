@@ -515,6 +515,16 @@ tr:hover td { background: #FAFAFA; }
 .status-banner-body .icon { color: var(--mb-warning); flex-shrink: 0; }
 .status-banner-body.status-rejected .icon { color: var(--mb-danger); }
 
+/* ── Vérification d'identité artisan ─────────────────────── */
+.verify-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.verify-item .form-control { padding: 0.5rem; font-size: 0.82rem; }
+@media (max-width: 640px) { .verify-grid { grid-template-columns: 1fr; } }
+.doc-thumb-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin: 0.75rem 0; }
+.doc-thumb { text-align: center; }
+.doc-thumb img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-md); border: 1px solid var(--mb-gray-100); }
+.doc-thumb .missing { width: 100%; aspect-ratio: 1; border-radius: var(--radius-md); background: var(--mb-gray-100); display: flex; align-items: center; justify-content: center; color: var(--mb-gray-400); font-size: 0.75rem; }
+.doc-thumb span { display: block; font-size: 0.75rem; color: var(--mb-gray-400); margin-top: 0.3rem; }
+
 /* ── Tabs ────────────────────────────────────────────────── */
 .tabs { display: flex; gap: 0.5rem; border-bottom: 1.5px solid var(--mb-gray-100); margin-bottom: 1.25rem; }
 .tab-item { padding: 0.6rem 1rem; font-weight: 600; font-size: 0.9rem; color: var(--mb-gray-400); border-bottom: 2px solid transparent; margin-bottom: -1.5px; }

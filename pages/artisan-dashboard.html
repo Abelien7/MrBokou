@@ -193,15 +193,61 @@
     } catch (err) { showToast(err.message, "error"); }
   }
 
+  function hasAllDocuments() {
+    return !!(profile.profile_photo_path && profile.id_document_path && profile.selfie_path);
+  }
+
   function renderStatusBanner() {
     const banner = document.getElementById("status-banner");
     if (profile.status === "approuve") { banner.classList.add("hidden"); return; }
     banner.classList.remove("hidden");
     const body = banner.querySelector(".card-body");
-    if (profile.status === "en_attente") {
-      body.innerHTML = `<div class="status-banner-body">${icon("clock")}<span><strong>Profil en cours de validation.</strong> L'équipe MrBokou examine votre inscription.</span></div>`;
+    if (profile.status === "en_attente" && !hasAllDocuments()) {
+      body.innerHTML = `
+        <div class="status-banner-body mb-2">${icon("shield")}<span><strong>Complétez votre dossier</strong> pour que votre profil soit vérifié par l'équipe MrBokou. Ces documents ne sont visibles que par vous et l'administration.</span></div>
+        <div class="verify-grid">
+          <div class="verify-item">
+            <label class="form-label">Photo de profil</label>
+            <input type="file" accept="image/*" id="doc-profile" class="form-control"/>
+          </div>
+          <div class="verify-item">
+            <label class="form-label">Pièce d'identité</label>
+            <input type="file" accept="image/*" capture="environment" id="doc-id" class="form-control"/>
+          </div>
+          <div class="verify-item">
+            <label class="form-label">Selfie</label>
+            <input type="file" accept="image/*" capture="user" id="doc-selfie" class="form-control"/>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-block mt-2" id="btn-submit-docs">Envoyer mes documents</button>
+      `;
+      document.getElementById("btn-submit-docs").addEventListener("click", submitDocuments);
+    } else if (profile.status === "en_attente") {
+      body.innerHTML = `<div class="status-banner-body">${icon("clock")}<span><strong>Documents envoyés.</strong> L'équipe MrBokou examine votre dossier.</span></div>`;
     } else {
       body.innerHTML = `<div class="status-banner-body status-rejected">${icon("ban")}<span><strong>Profil non validé.</strong> Contactez MrBokou pour plus d'informations.</span></div>`;
+    }
+  }
+
+  async function submitDocuments() {
+    const profilePhotoFile = document.getElementById("doc-profile").files[0];
+    const idDocumentFile = document.getElementById("doc-id").files[0];
+    const selfieFile = document.getElementById("doc-selfie").files[0];
+    if (!profilePhotoFile || !idDocumentFile || !selfieFile) {
+      return showToast("Les 3 documents sont requis.", "error");
+    }
+    const btn = document.getElementById("btn-submit-docs");
+    btn.disabled = true;
+    btn.textContent = "Envoi...";
+    try {
+      await Artisans.uploadDocuments({ profilePhotoFile, idDocumentFile, selfieFile });
+      profile = await Artisans.myProfile();
+      showToast("Documents envoyés, en attente de validation.", "success");
+      renderStatusBanner();
+    } catch (err) {
+      showToast(err.message, "error");
+      btn.disabled = false;
+      btn.textContent = "Envoyer mes documents";
     }
   }
 

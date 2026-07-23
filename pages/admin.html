@@ -87,13 +87,23 @@
     if (pending.length === 0) {
       list.innerHTML = `<div class="empty-state">${icon("checkCircle")}<p>Aucune demande d'inscription en attente.</p></div>`;
     } else {
-      list.innerHTML = pending.map(a => `
+      const withDocs = await Promise.all(pending.map(async a => ({
+        a, complete: !!(a.profile_photo_path && a.id_document_path && a.selfie_path),
+        urls: await Artisans.getDocumentUrls(a)
+      })));
+
+      list.innerHTML = withDocs.map(({ a, complete, urls }) => `
         <div class="request-card">
           <div class="request-title">${Security.safeText(a.profiles.full_name)}</div>
           <div class="request-meta">${Security.safeText(a.profiles.phone)} · ${Security.safeText(a.profiles.city || "")}</div>
           <div class="request-desc">${Security.safeText(a.bio || "Aucune bio renseignée.")}</div>
+          <div class="doc-thumb-grid">
+            <div class="doc-thumb">${urls.profile_photo ? `<img src="${urls.profile_photo}" alt=""/>` : `<div class="missing">Non fourni</div>`}<span>Photo</span></div>
+            <div class="doc-thumb">${urls.id_document ? `<img src="${urls.id_document}" alt=""/>` : `<div class="missing">Non fourni</div>`}<span>Pièce d'identité</span></div>
+            <div class="doc-thumb">${urls.selfie ? `<img src="${urls.selfie}" alt=""/>` : `<div class="missing">Non fourni</div>`}<span>Selfie</span></div>
+          </div>
           <div class="request-actions">
-            <button class="btn btn-primary btn-sm" onclick="setArtisanStatus('${a.profile_id}', 'approuve')">Approuver</button>
+            <button class="btn btn-primary btn-sm" ${complete ? "" : "disabled"} onclick="setArtisanStatus('${a.profile_id}', 'approuve')">${complete ? "Approuver" : "Documents incomplets"}</button>
             <button class="btn btn-danger btn-sm" onclick="setArtisanStatus('${a.profile_id}', 'rejete')">Rejeter</button>
           </div>
         </div>

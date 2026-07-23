@@ -42,6 +42,11 @@ create table if not exists artisan_profiles (
   status text not null check (status in ('en_attente', 'approuve', 'rejete')) default 'en_attente',
   rating_avg numeric(3,2) not null default 0,
   rating_count integer not null default 0,
+  -- Vérification d'identité (voir bucket storage "artisan-documents" plus bas) :
+  -- requis avant qu'un admin puisse approuver le profil.
+  profile_photo_path text,
+  id_document_path text,
+  selfie_path text,
   updated_at timestamptz not null default now()
 );
 
@@ -215,6 +220,16 @@ begin
   end if;
   if p_status not in ('en_attente', 'approuve', 'rejete') then
     raise exception 'Statut invalide';
+  end if;
+  -- Impossible d'approuver sans les 3 documents de vérification d'identité
+  -- (photo de profil, pièce d'identité, selfie) : garantie anti-arnaque,
+  -- pas seulement une suggestion côté interface.
+  if p_status = 'approuve' and exists (
+    select 1 from artisan_profiles
+    where profile_id = p_profile_id
+      and (profile_photo_path is null or id_document_path is null or selfie_path is null)
+  ) then
+    raise exception 'Documents de vérification manquants (photo, pièce d''identité, selfie).';
   end if;
   update artisan_profiles set status = p_status, updated_at = now() where profile_id = p_profile_id;
 end;
@@ -448,6 +463,28 @@ create policy "participants voient les photos de leur demande" on storage.object
       where r.id::text = (storage.foldername(name))[1]
         and (r.client_id = auth.uid() or r.artisan_id = auth.uid())
     )
+  );
+
+-- ============================================================
+-- Stockage : documents de vérification d'identité artisan (bucket privé)
+-- ============================================================
+-- Convention de chemin : artisan-documents/{profile_id}/{profile|id-document|selfie}.jpg
+-- Jamais lisible par un client ni un autre artisan : c'est de la pièce
+-- d'identité, seul le propriétaire et l'admin y ont accès.
+insert into storage.buckets (id, name, public)
+values ('artisan-documents', 'artisan-documents', false)
+on conflict (id) do nothing;
+
+create policy "un artisan envoie ses propres documents" on storage.objects
+  for insert with check (
+    bucket_id = 'artisan-documents'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+create policy "l'artisan et l'admin voient les documents" on storage.objects
+  for select using (
+    bucket_id = 'artisan-documents'
+    and ((storage.foldername(name))[1] = auth.uid()::text or get_user_role() = 'admin')
   );
 
 -- ============================================================
