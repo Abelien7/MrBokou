@@ -270,6 +270,9 @@ begin
       new.accepted_at := now();
       new.completed_at := old.completed_at;
     elsif old.artisan_id = auth.uid() and old.status = 'acceptee' and new.status = 'en_cours' then
+      if not exists (select 1 from quotes q where q.request_id = old.id and q.status = 'accepte') then
+        raise exception 'Le client doit accepter un devis avant de démarrer.';
+      end if;
       new.completed_at := old.completed_at;
     elsif old.artisan_id = auth.uid() and old.status = 'en_cours' and new.status = 'terminee' then
       new.completed_at := now();
@@ -317,6 +320,139 @@ create policy "le client note sa demande terminée" on reviews
   );
 
 -- ============================================================
--- Realtime : activer les diffusions temps réel sur requests
+-- Devis (négociation de prix) et messagerie client <-> artisan
+-- ============================================================
+-- Un devis par ligne : si le client refuse, l'artisan en renvoie un autre
+-- (nouvelle ligne) plutôt que de modifier le refusé.
+create table if not exists quotes (
+  id uuid primary key default gen_random_uuid(),
+  request_id uuid not null references requests(id) on delete cascade,
+  artisan_id uuid not null references profiles(id),
+  amount integer not null check (amount > 0),
+  description text,
+  status text not null check (status in ('en_attente', 'accepte', 'refuse')) default 'en_attente',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists messages (
+  id uuid primary key default gen_random_uuid(),
+  request_id uuid not null references requests(id) on delete cascade,
+  sender_id uuid not null references profiles(id),
+  content text,
+  image_path text,
+  created_at timestamptz not null default now(),
+  constraint messages_content_or_image check (content is not null or image_path is not null)
+);
+
+alter table quotes enable row level security;
+alter table messages enable row level security;
+
+-- quotes
+create policy "participants lisent les devis" on quotes
+  for select using (
+    get_user_role() = 'admin'
+    or exists (
+      select 1 from requests r where r.id = quotes.request_id
+        and (r.client_id = auth.uid() or r.artisan_id = auth.uid())
+    )
+  );
+
+create policy "l'artisan envoie un devis sur sa mission acceptée" on quotes
+  for insert with check (
+    artisan_id = auth.uid()
+    and exists (
+      select 1 from requests r where r.id = quotes.request_id
+        and r.artisan_id = auth.uid() and r.status = 'acceptee'
+    )
+  );
+
+create policy "le client répond au devis" on quotes
+  for update using (
+    get_user_role() = 'admin'
+    or exists (select 1 from requests r where r.id = quotes.request_id and r.client_id = auth.uid())
+  );
+
+-- La policy ci-dessus autorise à toucher la ligne ; ce trigger restreint ensuite
+-- ce qui peut changer : seulement en_attente -> accepte|refuse, rien d'autre.
+create or replace function guard_quote_update()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  if get_user_role() = 'admin' then
+    return new;
+  end if;
+  if old.status <> 'en_attente' or new.status not in ('accepte', 'refuse') then
+    raise exception 'Modification non autorisée';
+  end if;
+  new.request_id := old.request_id;
+  new.artisan_id := old.artisan_id;
+  new.amount := old.amount;
+  new.description := old.description;
+  new.created_at := old.created_at;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_guard_quote_update on quotes;
+create trigger trg_guard_quote_update
+  before update on quotes
+  for each row execute function guard_quote_update();
+
+-- messages : ouverts une fois la demande acceptée, jusqu'à la fin de la mission
+create policy "participants lisent les messages" on messages
+  for select using (
+    get_user_role() = 'admin'
+    or exists (
+      select 1 from requests r where r.id = messages.request_id
+        and (r.client_id = auth.uid() or r.artisan_id = auth.uid())
+    )
+  );
+
+create policy "participants envoient des messages" on messages
+  for insert with check (
+    sender_id = auth.uid()
+    and exists (
+      select 1 from requests r where r.id = messages.request_id
+        and (r.client_id = auth.uid() or r.artisan_id = auth.uid())
+        and r.status in ('acceptee', 'en_cours')
+    )
+  );
+
+-- ============================================================
+-- Stockage : photos jointes aux messages (bucket privé)
+-- ============================================================
+insert into storage.buckets (id, name, public)
+values ('request-photos', 'request-photos', false)
+on conflict (id) do nothing;
+
+-- Convention de chemin : request-photos/{request_id}/{fichier} — le premier
+-- segment du chemin sert à vérifier que l'uploadeur/lecteur fait bien partie
+-- de la demande concernée.
+create policy "participants envoient des photos de leur demande" on storage.objects
+  for insert with check (
+    bucket_id = 'request-photos'
+    and exists (
+      select 1 from requests r
+      where r.id::text = (storage.foldername(name))[1]
+        and (r.client_id = auth.uid() or r.artisan_id = auth.uid())
+    )
+  );
+
+create policy "participants voient les photos de leur demande" on storage.objects
+  for select using (
+    bucket_id = 'request-photos'
+    and exists (
+      select 1 from requests r
+      where r.id::text = (storage.foldername(name))[1]
+        and (r.client_id = auth.uid() or r.artisan_id = auth.uid())
+    )
+  );
+
+-- ============================================================
+-- Realtime : activer les diffusions temps réel
 -- ============================================================
 alter publication supabase_realtime add table requests;
+alter publication supabase_realtime add table quotes;
+alter publication supabase_realtime add table messages;

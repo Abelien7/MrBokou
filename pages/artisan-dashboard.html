@@ -46,6 +46,11 @@
   <section id="panel-missions" class="hidden"><div id="missions-list"></div></section>
 </main>
 
+<!-- Modal négociation (devis + messages) -->
+<div class="modal-overlay hidden" id="nego-modal">
+  <div class="modal modal-lg" id="nego-modal-content"></div>
+</div>
+
 <div id="toast-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -56,6 +61,7 @@
 <script src="/js/auth.js"></script>
 <script src="/js/requests.js"></script>
 <script src="/js/artisans.js"></script>
+<script src="/js/negotiation.js"></script>
 <script>
   let profile = null;
   let myCoords = null;
@@ -150,6 +156,12 @@
       return;
     }
 
+    const acceptedQuoteIds = new Set();
+    await Promise.all(missions.filter(r => r.status === "acceptee").map(async r => {
+      const quotes = await Nego.getQuotes(r.id);
+      if (quotes[0]?.status === "accepte") acceptedQuoteIds.add(r.id);
+    }));
+
     list.innerHTML = missions.map(r => `
       <div class="request-card">
         <div class="flex-between">
@@ -159,8 +171,10 @@
         <div class="request-meta">${Security.safeText(r.address_text)} · ${timeAgo(r.created_at)}</div>
         <div class="request-desc">${Security.safeText(r.description)}</div>
         <div class="request-meta">Client : ${Security.safeText(r.client?.full_name || "")} · ${Security.safeText(r.client?.phone || "")}</div>
+        ${r.status === "acceptee" && !acceptedQuoteIds.has(r.id) ? `<p class="form-hint">Envoyez un devis au client dans "Discuter" pour pouvoir démarrer.</p>` : ""}
         <div class="request-actions">
-          ${r.status === "acceptee" ? `<button class="btn btn-primary btn-sm" onclick="startMission('${r.id}')">Démarrer l'intervention</button>` : ""}
+          ${["acceptee", "en_cours", "terminee"].includes(r.status) ? `<button class="btn btn-outline btn-sm" onclick="NegoUI.open('${r.id}', 'artisan')">Discuter</button>` : ""}
+          ${r.status === "acceptee" && acceptedQuoteIds.has(r.id) ? `<button class="btn btn-primary btn-sm" onclick="startMission('${r.id}')">Démarrer l'intervention</button>` : ""}
           ${r.status === "en_cours" ? `<button class="btn btn-accent btn-sm" onclick="completeMission('${r.id}')">Marquer terminé</button>` : ""}
         </div>
       </div>

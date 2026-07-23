@@ -468,7 +468,42 @@ tr:hover td { background: #FAFAFA; }
 .modal-overlay.hidden { display: none; }
 .modal { background: var(--mb-white); border-radius: var(--radius-xl); padding: 2rem; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg); }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-.modal-close { background: none; border: none; font-size: 1.5rem; color: var(--mb-gray-400); }
+.modal-close { background: none; border: none; font-size: 1.5rem; color: var(--mb-gray-400); display: flex; }
+.modal-lg { max-width: 560px; display: flex; flex-direction: column; }
+
+/* ── Négociation : devis + messagerie ────────────────────── */
+.quote-card { background: var(--mb-gray-100); border-radius: var(--radius-lg); padding: 1rem; margin-bottom: 1rem; }
+.quote-status { display: flex; align-items: center; gap: 0.5rem; }
+.quote-status.accepted { color: var(--mb-success); font-weight: 600; }
+.quote-status.pending div:first-child { font-size: 1.1rem; }
+
+.nego-thread {
+  flex: 1;
+  max-height: 320px;
+  min-height: 100px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.25rem 0.25rem 0.75rem;
+}
+.nego-bubble-row { display: flex; }
+.nego-bubble-row.mine { justify-content: flex-end; }
+.nego-bubble {
+  max-width: 78%;
+  background: var(--mb-gray-100);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.8rem;
+  font-size: 0.9rem;
+}
+.nego-bubble-row.mine .nego-bubble { background: var(--mb-green-lt); }
+.nego-bubble p { color: var(--mb-dark); margin: 0; white-space: pre-wrap; word-break: break-word; }
+.nego-time { display: block; margin-top: 0.25rem; font-size: 0.7rem; color: var(--mb-gray-400); }
+.nego-photo { margin-top: 0.3rem; }
+.nego-photo img { max-width: 100%; border-radius: var(--radius-sm); display: block; }
+
+.nego-composer { display: flex; align-items: center; gap: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--mb-gray-100); }
+.nego-composer input[type="text"] { flex: 1; }
 
 /* ── Page header (app pages) ──────────────────────────────── */
 .page-header { margin-bottom: 1.5rem; }

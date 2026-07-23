@@ -22,6 +22,7 @@ const ICONS = {
   ban: `<circle cx="12" cy="12" r="9"/><line x1="6" y1="6" x2="18" y2="18"/>`,
   clipboard: `<rect x="6" y="4" width="12" height="17" rx="1.5"/><rect x="9" y="2" width="6" height="4" rx="1"/><line x1="9" y1="11" x2="15" y2="11"/><line x1="9" y1="15" x2="15" y2="15"/>`,
   users: `<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17.5" cy="9" r="2.6"/><path d="M15 14.3c2.9.5 5 3 5 5.7"/>`,
+  camera: `<path d="M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/>`,
 };
 
 function icon(name, cls = "") {
