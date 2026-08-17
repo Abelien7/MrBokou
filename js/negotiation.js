@@ -159,7 +159,7 @@ const NegoUI = (() => {
       <form class="nego-composer" id="nego-composer">
         <input type="file" id="nego-photo" accept="image/*" class="hidden"/>
         <button type="button" class="btn btn-ghost btn-sm" id="nego-photo-btn">${icon("camera", "icon-sm")}</button>
-        <input type="text" id="nego-text" placeholder="Écrire un message..." class="form-control"/>
+        <input type="text" id="nego-text" placeholder="Écrire un message..." class="form-control" maxlength="2000"/>
         <button type="submit" class="btn btn-primary btn-sm">Envoyer</button>
       </form>` : `<p class="text-muted text-center mt-2">La discussion est close pour cette demande.</p>`}
     `;
@@ -200,7 +200,7 @@ const NegoUI = (() => {
                     <input type="number" min="1" class="form-control" id="quote-amount" placeholder="Ex : 15000"/>
                     <button type="button" class="btn btn-accent btn-sm" id="quote-send" style="white-space:nowrap;">Envoyer</button>
                   </div>
-                  <textarea class="form-control mt-1" id="quote-desc" placeholder="Détail (matériel, main d'œuvre...)"></textarea>
+                  <textarea class="form-control mt-1" id="quote-desc" placeholder="Détail (matériel, main d'œuvre...)" maxlength="2000"></textarea>
                 </div>`
                 : `<p class="text-muted">Devis déjà validé, la discussion continue ci-dessous.</p>`
           }

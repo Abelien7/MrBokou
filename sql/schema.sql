@@ -34,7 +34,7 @@ create table if not exists profiles (
 create table if not exists artisan_profiles (
   profile_id uuid primary key references profiles(id) on delete cascade,
   categories uuid[] not null default '{}',
-  bio text,
+  bio text check (char_length(bio) <= 1000),
   ville text,
   is_available boolean not null default false,
   lat double precision,
@@ -55,8 +55,8 @@ create table if not exists requests (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references profiles(id) on delete cascade,
   category_id uuid not null references service_categories(id),
-  description text not null,
-  address_text text not null,
+  description text not null check (char_length(description) between 1 and 2000),
+  address_text text not null check (char_length(address_text) between 1 and 500),
   lat double precision,
   lng double precision,
   status text not null check (status in ('en_attente', 'acceptee', 'en_cours', 'terminee', 'annulee')) default 'en_attente',
@@ -73,7 +73,7 @@ create table if not exists reviews (
   client_id uuid not null references profiles(id),
   artisan_id uuid not null references profiles(id),
   rating integer not null check (rating between 1 and 5),
-  comment text,
+  comment text check (char_length(comment) <= 1000),
   created_at timestamptz not null default now()
 );
 
@@ -183,6 +183,35 @@ create policy "categories lisibles par tous" on service_categories
 create policy "profils lisibles par tous les connectés" on profiles
   for select using (auth.uid() is not null);
 
+-- Le téléphone est plus sensible que le nom : la policy ci-dessus rend la ligne
+-- "profiles" lisible à tout connecté, mais RLS ne peut pas masquer une seule
+-- colonne selon le lecteur. On retire donc le droit de lire "phone" directement
+-- (colonne), et on ne le rend accessible que via cette fonction, qui ne renvoie
+-- une valeur que si l'appelant est le propriétaire, un admin, ou lié au profil
+-- cible par une demande commune (client/artisan d'une même requête).
+create or replace function contact_phone(target_id uuid)
+returns text
+language sql
+security definer
+stable
+as $$
+  select phone from profiles
+  where id = target_id
+    and (
+      target_id = auth.uid()
+      or get_user_role() = 'admin'
+      or exists (
+        select 1 from requests r
+        where (r.client_id = auth.uid() and r.artisan_id = target_id)
+           or (r.artisan_id = auth.uid() and r.client_id = target_id)
+      )
+    );
+$$;
+
+grant execute on function contact_phone(uuid) to authenticated;
+revoke select (phone) on profiles from authenticated;
+revoke select (phone) on profiles from anon;
+
 -- Un utilisateur ne peut se créer/modifier qu'en tant que client ou artisan :
 -- le rôle admin ne peut être attribué que manuellement (SQL) par l'opérateur MrBokou,
 -- sinon n'importe quel compte pourrait s'auto-promouvoir admin via l'API.
@@ -208,6 +237,24 @@ create policy "un artisan modifie son propre profil métier" on artisan_profiles
 -- (propriétaire de la table, donc non concernées par ce REVOKE) peuvent les modifier.
 revoke update (status, rating_avg, rating_count) on artisan_profiles from authenticated;
 
+-- Journal des actions admin sensibles. Aucune policy INSERT : seules les
+-- fonctions SECURITY DEFINER (propriétaire de la table) peuvent y écrire,
+-- jamais directement un utilisateur, même admin.
+create table if not exists audit_logs (
+  id uuid primary key default gen_random_uuid(),
+  actor_id uuid references profiles(id),
+  action text not null,
+  target_table text,
+  target_id uuid,
+  details jsonb,
+  created_at timestamptz not null default now()
+);
+
+alter table audit_logs enable row level security;
+
+create policy "admin lit le journal" on audit_logs
+  for select using (get_user_role() = 'admin');
+
 -- RPC admin : seul moyen d'approuver/rejeter un artisan
 create or replace function admin_set_artisan_status(p_profile_id uuid, p_status text)
 returns void
@@ -232,16 +279,57 @@ begin
     raise exception 'Documents de vérification manquants (photo, pièce d''identité, selfie).';
   end if;
   update artisan_profiles set status = p_status, updated_at = now() where profile_id = p_profile_id;
+  insert into audit_logs (actor_id, action, target_table, target_id, details)
+  values (auth.uid(), 'ADMIN_SET_ARTISAN_STATUS', 'artisan_profiles', p_profile_id, jsonb_build_object('status', p_status));
 end;
 $$;
 
+-- RPC admin : seul moyen de marquer un devis comme reversé à l'artisan
+-- (les colonnes payment_id/payment_status/payout_status/payout_at sont
+-- retirées du UPDATE direct des comptes authentifiés, voir plus bas).
+create or replace function admin_mark_payout_done(p_quote_id uuid)
+returns void
+language plpgsql
+security definer
+as $$
+begin
+  if get_user_role() <> 'admin' then
+    raise exception 'Accès refusé';
+  end if;
+  update quotes set payout_status = 'verse', payout_at = now()
+  where id = p_quote_id and payment_status = 'paye';
+  if not found then
+    raise exception 'Devis introuvable ou non payé.';
+  end if;
+  insert into audit_logs (actor_id, action, target_table, target_id)
+  values (auth.uid(), 'PAYOUT_MARKED_DONE', 'quotes', p_quote_id);
+end;
+$$;
+
+grant execute on function admin_set_artisan_status(uuid, text) to authenticated;
+grant execute on function admin_mark_payout_done(uuid) to authenticated;
+
 -- requests
+-- Un artisan ne voit une demande en attente que si son profil est approuvé
+-- ET que la demande correspond à l'une de ses catégories : le filtrage par
+-- catégorie doit être appliqué par la policy elle-même, pas seulement par
+-- la requête applicative (js/requests.js), sinon un compte artisan non
+-- approuvé peut lire toutes les demandes en attente de la plateforme.
 create policy "le client voit ses demandes" on requests
   for select using (
     client_id = auth.uid()
     or artisan_id = auth.uid()
     or get_user_role() = 'admin'
-    or (status = 'en_attente' and get_user_role() = 'artisan')
+    or (
+      status = 'en_attente'
+      and get_user_role() = 'artisan'
+      and exists (
+        select 1 from artisan_profiles ap
+        where ap.profile_id = auth.uid()
+          and ap.status = 'approuve'
+          and requests.category_id = any(ap.categories)
+      )
+    )
   );
 
 create policy "un client crée une demande" on requests
@@ -288,8 +376,10 @@ begin
       if not exists (select 1 from quotes q where q.request_id = old.id and q.status = 'accepte') then
         raise exception 'Le client doit accepter un devis avant de démarrer.';
       end if;
+      new.artisan_id := old.artisan_id;
       new.completed_at := old.completed_at;
     elsif old.artisan_id = auth.uid() and old.status = 'en_cours' and new.status = 'terminee' then
+      new.artisan_id := old.artisan_id;
       new.completed_at := now();
     else
       raise exception 'Modification non autorisée';
@@ -315,6 +405,28 @@ drop trigger if exists trg_guard_request_update on requests;
 create trigger trg_guard_request_update
   before update on requests
   for each row execute function guard_request_update();
+
+-- Anti-spam : un client ne peut pas créer plus de 5 demandes en 10 minutes.
+create or replace function enforce_request_rate_limit()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  if (
+    select count(*) from requests
+    where client_id = new.client_id and created_at > now() - interval '10 minutes'
+  ) >= 5 then
+    raise exception 'Trop de demandes créées récemment, réessayez dans quelques minutes.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_enforce_request_rate_limit on requests;
+create trigger trg_enforce_request_rate_limit
+  before insert on requests
+  for each row execute function enforce_request_rate_limit();
 
 -- reviews
 create policy "avis lisibles par tous les connectés" on reviews
@@ -344,7 +456,7 @@ create table if not exists quotes (
   request_id uuid not null references requests(id) on delete cascade,
   artisan_id uuid not null references profiles(id),
   amount integer not null check (amount > 0),
-  description text,
+  description text check (char_length(description) <= 2000),
   status text not null check (status in ('en_attente', 'accepte', 'refuse')) default 'en_attente',
   created_at timestamptz not null default now(),
   -- Paiement AJV Pay (voir api/create-payment.js, api/payment-callback/ajvpay.js) :
@@ -359,7 +471,7 @@ create table if not exists messages (
   id uuid primary key default gen_random_uuid(),
   request_id uuid not null references requests(id) on delete cascade,
   sender_id uuid not null references profiles(id),
-  content text,
+  content text check (char_length(content) <= 2000),
   image_path text,
   created_at timestamptz not null default now(),
   constraint messages_content_or_image check (content is not null or image_path is not null)
@@ -436,6 +548,34 @@ create trigger trg_guard_quote_update
   before update on quotes
   for each row execute function guard_quote_update();
 
+-- Un client peut passer son propre devis à 'refuse' (via la policy + le
+-- trigger ci-dessus), mais rien n'empêchait de glisser payment_status /
+-- payout_status / payout_at dans le même UPDATE : ces colonnes ne doivent
+-- être écrites que par le service_role (webhook AJV Pay, RPC admin).
+revoke update (payment_id, payment_status, payout_status, payout_at) on quotes from authenticated;
+
+-- Anti-spam : un artisan ne peut pas envoyer plus de 10 devis en 10 minutes.
+create or replace function enforce_quote_rate_limit()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  if (
+    select count(*) from quotes
+    where artisan_id = new.artisan_id and created_at > now() - interval '10 minutes'
+  ) >= 10 then
+    raise exception 'Trop de devis envoyés récemment, réessayez dans quelques minutes.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_enforce_quote_rate_limit on quotes;
+create trigger trg_enforce_quote_rate_limit
+  before insert on quotes
+  for each row execute function enforce_quote_rate_limit();
+
 -- messages : ouverts une fois la demande acceptée, jusqu'à la fin de la mission
 create policy "participants lisent les messages" on messages
   for select using (
@@ -456,12 +596,38 @@ create policy "participants envoient des messages" on messages
     )
   );
 
+-- Anti-spam : un utilisateur ne peut pas envoyer plus de 30 messages en 5 minutes.
+create or replace function enforce_message_rate_limit()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  if (
+    select count(*) from messages
+    where sender_id = new.sender_id and created_at > now() - interval '5 minutes'
+  ) >= 30 then
+    raise exception 'Trop de messages envoyés récemment, réessayez dans quelques minutes.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_enforce_message_rate_limit on messages;
+create trigger trg_enforce_message_rate_limit
+  before insert on messages
+  for each row execute function enforce_message_rate_limit();
+
 -- ============================================================
 -- Stockage : photos jointes aux messages (bucket privé)
 -- ============================================================
-insert into storage.buckets (id, name, public)
-values ('request-photos', 'request-photos', false)
-on conflict (id) do nothing;
+-- file_size_limit (5 Mo) et allowed_mime_types imposés au niveau du bucket :
+-- le navigateur compresse déjà en JPEG côté client (voir ui.js compressImage),
+-- mais rien n'empêche un appel direct à l'API de stockage avec un fichier
+-- différent sans ce garde-fou côté serveur.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('request-photos', 'request-photos', false, 5242880, array['image/jpeg'])
+on conflict (id) do update set file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
 -- Convention de chemin : request-photos/{request_id}/{fichier} — le premier
 -- segment du chemin sert à vérifier que l'uploadeur/lecteur fait bien partie
@@ -492,9 +658,9 @@ create policy "participants voient les photos de leur demande" on storage.object
 -- Convention de chemin : artisan-documents/{profile_id}/{profile|id-document|selfie}.jpg
 -- Jamais lisible par un client ni un autre artisan : c'est de la pièce
 -- d'identité, seul le propriétaire et l'admin y ont accès.
-insert into storage.buckets (id, name, public)
-values ('artisan-documents', 'artisan-documents', false)
-on conflict (id) do nothing;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('artisan-documents', 'artisan-documents', false, 5242880, array['image/jpeg'])
+on conflict (id) do update set file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
 
 create policy "un artisan envoie ses propres documents" on storage.objects
   for insert with check (

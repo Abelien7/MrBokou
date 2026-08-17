@@ -35,6 +35,7 @@
     <div class="tab-item" data-tab="all-artisans" id="tab-all-artisans">Tous les artisans</div>
     <div class="tab-item" data-tab="requests" id="tab-all-requests">Toutes les demandes</div>
     <div class="tab-item" data-tab="payments" id="tab-payments">Paiements</div>
+    <div class="tab-item" data-tab="audit-log" id="tab-audit-log">Journal</div>
   </div>
 
   <section id="panel-pending"><div id="pending-list"></div></section>
@@ -66,6 +67,14 @@
       </table>
     </div>
   </section>
+  <section id="panel-audit-log" class="hidden">
+    <div class="table-wrapper">
+      <table>
+        <thead><tr><th>Quand</th><th>Admin</th><th>Action</th><th>Table</th><th>Détails</th></tr></thead>
+        <tbody id="audit-log-table-body"></tbody>
+      </table>
+    </div>
+  </section>
 </main>
 
 <div id="toast-container"></div>
@@ -89,10 +98,12 @@
       document.getElementById("panel-all-artisans").classList.toggle("hidden", tab.dataset.tab !== "all-artisans");
       document.getElementById("panel-requests").classList.toggle("hidden", tab.dataset.tab !== "requests");
       document.getElementById("panel-payments").classList.toggle("hidden", tab.dataset.tab !== "payments");
+      document.getElementById("panel-audit-log").classList.toggle("hidden", tab.dataset.tab !== "audit-log");
       if (tab.dataset.tab === "pending") loadPending();
       if (tab.dataset.tab === "all-artisans") loadAllArtisans();
       if (tab.dataset.tab === "requests") loadAllRequests();
       if (tab.dataset.tab === "payments") loadPayments();
+      if (tab.dataset.tab === "audit-log") loadAuditLog();
     });
   });
 
@@ -170,10 +181,13 @@
   async function loadPayments() {
     const { data, error } = await supabase
       .from("quotes")
-      .select("id, amount, payout_status, payout_at, artisan:artisan_id(full_name, phone)")
+      .select("id, amount, artisan_id, payout_status, payout_at, artisan:artisan_id(full_name)")
       .eq("payment_status", "paye")
       .order("created_at", { ascending: false });
     if (error) return showToast(error.message, "error");
+    await Promise.all(data.map(async q => {
+      if (q.artisan) q.artisan.phone = await contactPhone(q.artisan_id);
+    }));
 
     document.getElementById("payments-table-body").innerHTML = data.map(q => {
       const artisanShare = Math.round(q.amount * 0.9);
@@ -192,10 +206,28 @@
   }
 
   async function markPayoutDone(quoteId) {
-    const { error } = await supabase.from("quotes").update({ payout_status: "verse", payout_at: new Date().toISOString() }).eq("id", quoteId);
+    const { error } = await supabase.rpc("admin_mark_payout_done", { p_quote_id: quoteId });
     if (error) return showToast(error.message, "error");
     showToast("Reversement marqué comme fait.", "success");
     loadPayments();
+  }
+
+  async function loadAuditLog() {
+    const { data, error } = await supabase
+      .from("audit_logs")
+      .select("*, actor:actor_id(full_name)")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) return showToast(error.message, "error");
+    document.getElementById("audit-log-table-body").innerHTML = data.map(a => `
+      <tr>
+        <td>${timeAgo(a.created_at)}</td>
+        <td>${Security.safeText(a.actor?.full_name || "—")}</td>
+        <td>${Security.safeText(a.action)}</td>
+        <td>${Security.safeText(a.target_table || "")}</td>
+        <td>${a.details ? Security.safeText(JSON.stringify(a.details)) : ""}</td>
+      </tr>
+    `).join("");
   }
 
   async function updateStats() {

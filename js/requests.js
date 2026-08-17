@@ -29,10 +29,13 @@ const Requests = (() => {
     const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from("requests")
-      .select("*, service_categories(name), artisan:artisan_id(full_name, phone)")
+      .select("*, service_categories(name), artisan:artisan_id(full_name)")
       .eq("client_id", user.id)
       .order("created_at", { ascending: false });
     if (error) throw error;
+    await Promise.all(data.map(async r => {
+      if (r.artisan) r.artisan.phone = await contactPhone(r.artisan_id);
+    }));
     return data;
   }
 
@@ -51,7 +54,7 @@ const Requests = (() => {
     if (!categoryIds || categoryIds.length === 0) return [];
     const { data, error } = await supabase
       .from("requests")
-      .select("*, service_categories(name), client:client_id(full_name, phone)")
+      .select("*, service_categories(name), client:client_id(full_name)")
       .eq("status", REQUEST_STATUS.PENDING)
       .in("category_id", categoryIds)
       .order("created_at", { ascending: false });
@@ -64,10 +67,13 @@ const Requests = (() => {
     const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from("requests")
-      .select("*, service_categories(name), client:client_id(full_name, phone)")
+      .select("*, service_categories(name), client:client_id(full_name)")
       .eq("artisan_id", user.id)
       .order("created_at", { ascending: false });
     if (error) throw error;
+    await Promise.all(data.map(async r => {
+      if (r.client) r.client.phone = await contactPhone(r.client_id);
+    }));
     return data;
   }
 

@@ -47,8 +47,8 @@ module.exports = async (req, res) => {
 
   if (payload.status === "succeeded") {
     const declaredAmount = Number(payload.amount);
-    if (Number.isFinite(declaredAmount) && Math.abs(declaredAmount - quote.amount) > AMOUNT_TOLERANCE) {
-      return res.status(409).json({ error: "Montant incohérent" });
+    if (!Number.isFinite(declaredAmount) || Math.abs(declaredAmount - quote.amount) > AMOUNT_TOLERANCE) {
+      return res.status(409).json({ error: "Montant incohérent ou manquant" });
     }
     await admin.from("quotes").update({
       status: "accepte",

@@ -8,7 +8,9 @@ const crypto = require("crypto");
 const BASE_URL = process.env.AJVPAY_API_BASE_URL || "https://ajv-pay-mvp-production.up.railway.app";
 
 function sign(body) {
-  return crypto.createHmac("sha256", process.env.AJVPAY_HMAC_SECRET || "").update(body).digest("hex");
+  const secret = process.env.AJVPAY_HMAC_SECRET;
+  if (!secret) throw new Error("AJVPAY_HMAC_SECRET manquant : signature refusée.");
+  return crypto.createHmac("sha256", secret).update(body).digest("hex");
 }
 
 async function ajvPayRequest(path, { method = "GET", body, idempotencyKey } = {}) {

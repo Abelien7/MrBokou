@@ -22,10 +22,12 @@ module.exports = async (req, res) => {
   // Client scopé RLS avec le token de l'appelant : il ne verra le devis que
   // s'il en est vraiment le client (ou l'artisan/admin, exclus juste après).
   // Clé anon publique (identique à js/supabase-config.js) : pas un secret,
-  // sa portée est déjà limitée par les policies RLS.
+  // sa portée est déjà limitée par les policies RLS. Lue depuis l'env plutôt
+  // que recopiée en dur, pour ne pas avoir deux endroits à mettre à jour en
+  // cas de rotation de clé.
   const supabaseAsUser = createClient(
     process.env.SUPABASE_URL || "https://evfsyxffognyqlkgcrqi.supabase.co",
-    "sb_publishable_wAt72pWmS9MyWmxtWbtjeQ_7m8b-wH-",
+    process.env.SUPABASE_ANON_KEY || "sb_publishable_wAt72pWmS9MyWmxtWbtjeQ_7m8b-wH-",
     { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false } }
   );
 
@@ -41,13 +43,13 @@ module.exports = async (req, res) => {
   if (quote.requests.client_id !== user.id) return res.status(403).json({ error: "Accès refusé" });
   if (quote.status !== "en_attente") return res.status(409).json({ error: "Ce devis n'est plus en attente." });
 
-  const { data: profile } = await supabaseAsUser.from("profiles").select("phone").eq("id", user.id).single();
-  if (!profile?.phone) return res.status(400).json({ error: "Numéro de téléphone manquant sur le profil." });
+  const { data: phone } = await supabaseAsUser.rpc("contact_phone", { target_id: user.id });
+  if (!phone) return res.status(400).json({ error: "Numéro de téléphone manquant sur le profil." });
 
   try {
     const payment = await createFedapayPayment({
       amount: quote.amount,
-      phoneNumber: profile.phone,
+      phoneNumber: phone,
       quoteId: quote.id
     });
 

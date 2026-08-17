@@ -8,10 +8,11 @@ const Artisans = (() => {
     const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from("artisan_profiles")
-      .select("*, profiles!artisan_profiles_profile_id_fkey(full_name, phone, city)")
+      .select("*, profiles!artisan_profiles_profile_id_fkey(full_name, city)")
       .eq("profile_id", user.id)
       .single();
     if (error) throw error;
+    data.profiles.phone = await contactPhone(user.id);
     return data;
   }
 
@@ -82,18 +83,20 @@ const Artisans = (() => {
   async function pendingApplications() {
     const { data, error } = await supabase
       .from("artisan_profiles")
-      .select("*, profiles!artisan_profiles_profile_id_fkey(full_name, phone, city)")
+      .select("*, profiles!artisan_profiles_profile_id_fkey(full_name, city)")
       .eq("status", "en_attente");
     if (error) throw error;
+    await Promise.all(data.map(async a => { a.profiles.phone = await contactPhone(a.profile_id); }));
     return data;
   }
 
   async function allArtisans() {
     const { data, error } = await supabase
       .from("artisan_profiles")
-      .select("*, profiles!artisan_profiles_profile_id_fkey(full_name, phone, city)")
+      .select("*, profiles!artisan_profiles_profile_id_fkey(full_name, city)")
       .order("updated_at", { ascending: false });
     if (error) throw error;
+    await Promise.all(data.map(async a => { a.profiles.phone = await contactPhone(a.profile_id); }));
     return data;
   }
 

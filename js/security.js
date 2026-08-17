@@ -12,7 +12,7 @@ const Security = (() => {
 
   function isValidTogoPhone(phone) {
     const cleaned = (phone || "").replace(/[\s\-().]/g, "");
-    return /^(00228|\+228)?[79]\d{7}$/.test(cleaned) || /^\d{8}$/.test(cleaned);
+    return /^(00228|\+228)?[79]\d{7}$/.test(cleaned);
   }
 
   function isValidEmail(email) {

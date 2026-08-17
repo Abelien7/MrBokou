@@ -50,6 +50,16 @@ function categoryIcon(name) {
   return icon(CATEGORY_ICONS[name] || "tool", "cat-icon");
 }
 
+// ── Téléphone de contact (protégé côté DB, voir fonction SQL contact_phone) ──
+// Ne renvoie une valeur que si l'appelant est le propriétaire du profil, un
+// admin, ou lié à ce profil via une demande commune (requests).
+async function contactPhone(targetId) {
+  if (!targetId) return null;
+  const { data, error } = await supabase.rpc("contact_phone", { target_id: targetId });
+  if (error) { console.error(error); return null; }
+  return data;
+}
+
 // ── Support (WhatsApp) ─────────────────────────────────────────
 const SUPPORT_WHATSAPP_NUMBER = "22892106658"; // +228 92 10 66 58
 function supportWhatsappLink(message) {
