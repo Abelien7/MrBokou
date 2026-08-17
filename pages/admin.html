@@ -128,8 +128,9 @@
             <div class="doc-thumb">${urls.id_document ? `<img src="${urls.id_document}" alt=""/>` : `<div class="missing">Non fourni</div>`}<span>Pièce d'identité</span></div>
             <div class="doc-thumb">${urls.selfie ? `<img src="${urls.selfie}" alt=""/>` : `<div class="missing">Non fourni</div>`}<span>Selfie</span></div>
           </div>
+          ${!complete ? `<p class="form-hint">Documents incomplets dans l'appli — à approuver seulement si vérifiés autrement (dépôt en physique, etc.).</p>` : ""}
           <div class="request-actions">
-            <button class="btn btn-primary btn-sm" ${complete ? "" : "disabled"} onclick="setArtisanStatus('${a.profile_id}', 'approuve')">${complete ? "Approuver" : "Documents incomplets"}</button>
+            <button class="btn btn-primary btn-sm" onclick="setArtisanStatus('${a.profile_id}', 'approuve')">Approuver</button>
             <button class="btn btn-danger btn-sm" onclick="setArtisanStatus('${a.profile_id}', 'rejete')">Rejeter</button>
           </div>
         </div>

@@ -209,8 +209,19 @@ as $$
 $$;
 
 grant execute on function contact_phone(uuid) to authenticated;
-revoke select (phone) on profiles from authenticated;
-revoke select (phone) on profiles from anon;
+
+-- IMPORTANT : "revoke select (phone) on profiles from ..." ne suffit PAS ici.
+-- En PostgreSQL, un privilège au niveau colonne ne peut jamais restreindre un
+-- privilège déjà accordé au niveau table : tant qu'un rôle a SELECT sur toute
+-- la table (ce que Supabase accorde par défaut), il garde accès à phone quoi
+-- qu'on revoke au niveau colonne. La seule façon de vraiment restreindre est
+-- de retirer le SELECT au niveau table, puis de le redonner colonne par
+-- colonne pour tout sauf phone (qui ne reste accessible que via contact_phone
+-- ci-dessus, en SECURITY DEFINER donc non concerné par ces grants).
+revoke select on profiles from authenticated;
+revoke select on profiles from anon;
+grant select (id, role, full_name, city, created_at) on profiles to authenticated;
+grant select (id, role, full_name, city, created_at) on profiles to anon;
 
 -- Un utilisateur ne peut se créer/modifier qu'en tant que client ou artisan :
 -- le rôle admin ne peut être attribué que manuellement (SQL) par l'opérateur MrBokou,
@@ -232,10 +243,34 @@ create policy "un artisan crée son propre profil métier" on artisan_profiles
 create policy "un artisan modifie son propre profil métier" on artisan_profiles
   for update using (auth.uid() = profile_id or get_user_role() = 'admin');
 
--- Un artisan authentifié a le droit UPDATE sur sa ligne (policy ci-dessus),
--- mais pas sur ces colonnes précises : seules les fonctions SECURITY DEFINER
--- (propriétaire de la table, donc non concernées par ce REVOKE) peuvent les modifier.
-revoke update (status, rating_avg, rating_count) on artisan_profiles from authenticated;
+-- Un artisan authentifié a le droit UPDATE sur sa ligne (policy ci-dessus).
+-- Un "revoke update (colonne) ... from authenticated" NE bloque PAS ça : en
+-- PostgreSQL, un privilège table-level (déjà accordé par défaut par Supabase)
+-- prime toujours sur une restriction au niveau colonne. Sans ce trigger, un
+-- artisan pouvait s'auto-approuver (status = 'approuve') par un simple UPDATE
+-- direct, sans jamais soumettre ses documents d'identité — vérifié en situation
+-- réelle. Seul un trigger BEFORE UPDATE qui réécrit la valeur peut réellement
+-- empêcher ça.
+create or replace function guard_artisan_profile_update()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  if get_user_role() = 'admin' then
+    return new;
+  end if;
+  new.status := old.status;
+  new.rating_avg := old.rating_avg;
+  new.rating_count := old.rating_count;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_guard_artisan_profile_update on artisan_profiles;
+create trigger trg_guard_artisan_profile_update
+  before update on artisan_profiles
+  for each row execute function guard_artisan_profile_update();
 
 -- Journal des actions admin sensibles. Aucune policy INSERT : seules les
 -- fonctions SECURITY DEFINER (propriétaire de la table) peuvent y écrire,
@@ -268,16 +303,9 @@ begin
   if p_status not in ('en_attente', 'approuve', 'rejete') then
     raise exception 'Statut invalide';
   end if;
-  -- Impossible d'approuver sans les 3 documents de vérification d'identité
-  -- (photo de profil, pièce d'identité, selfie) : garantie anti-arnaque,
-  -- pas seulement une suggestion côté interface.
-  if p_status = 'approuve' and exists (
-    select 1 from artisan_profiles
-    where profile_id = p_profile_id
-      and (profile_photo_path is null or id_document_path is null or selfie_path is null)
-  ) then
-    raise exception 'Documents de vérification manquants (photo, pièce d''identité, selfie).';
-  end if;
+  -- Les documents envoyés dans l'appli ne sont plus obligatoires pour
+  -- approuver : certains artisans se présentent en physique, l'admin peut
+  -- vérifier autrement. Le choix de vérifier ou non reste à l'admin.
   update artisan_profiles set status = p_status, updated_at = now() where profile_id = p_profile_id;
   insert into audit_logs (actor_id, action, target_table, target_id, details)
   values (auth.uid(), 'ADMIN_SET_ARTISAN_STATUS', 'artisan_profiles', p_profile_id, jsonb_build_object('status', p_status));
@@ -532,6 +560,20 @@ begin
     if old.status <> 'en_attente' or new.status <> 'refuse' then
       raise exception 'Modification non autorisée';
     end if;
+    -- Un client peut passer son propre devis à 'refuse' via la policy
+    -- ci-dessus, mais rien n'empêchait de glisser payment_status /
+    -- payout_status / payout_at dans le même UPDATE. Un "revoke update
+    -- (colonne) ... from authenticated" ne suffit PAS à bloquer ça (un
+    -- privilège table-level prime toujours sur une restriction colonne en
+    -- PostgreSQL) : on fige donc ces colonnes ici, dans le trigger, qui est
+    -- le seul mécanisme qui fonctionne réellement. Cette branche ne
+    -- s'exécute que pour un client authentifié (auth.uid() non nul et non
+    -- admin) ; le webhook et la RPC admin passent par les branches du dessus
+    -- et restent libres d'écrire ces colonnes.
+    new.payment_id := old.payment_id;
+    new.payment_status := old.payment_status;
+    new.payout_status := old.payout_status;
+    new.payout_at := old.payout_at;
   end if;
 
   new.request_id := old.request_id;
@@ -547,12 +589,6 @@ drop trigger if exists trg_guard_quote_update on quotes;
 create trigger trg_guard_quote_update
   before update on quotes
   for each row execute function guard_quote_update();
-
--- Un client peut passer son propre devis à 'refuse' (via la policy + le
--- trigger ci-dessus), mais rien n'empêchait de glisser payment_status /
--- payout_status / payout_at dans le même UPDATE : ces colonnes ne doivent
--- être écrites que par le service_role (webhook AJV Pay, RPC admin).
-revoke update (payment_id, payment_status, payout_status, payout_at) on quotes from authenticated;
 
 -- Anti-spam : un artisan ne peut pas envoyer plus de 10 devis en 10 minutes.
 create or replace function enforce_quote_rate_limit()
